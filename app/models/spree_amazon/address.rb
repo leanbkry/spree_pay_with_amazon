@@ -58,7 +58,7 @@ class SpreeAmazon::Address
     return nil if name.blank?
     names = name.split(" ")
     names.shift
-    names.join(" ")
+    names = names.join(" ")
     names.blank? ? nil : names
   end
 
