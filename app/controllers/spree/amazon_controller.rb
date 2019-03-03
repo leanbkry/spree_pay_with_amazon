@@ -48,8 +48,7 @@ class Spree::AmazonController < Spree::StoreController
 
     if address
       current_order.email = spree_current_user.try(:email) || "pending@amazon.com"
-      update_current_order_address!(:ship_address, address, spree_current_user.try(:ship_address))
-      update_current_order_address!(:bill_address, address, spree_current_user.try(:bill_address))
+      update_current_order_address!(address, spree_current_user.try(:ship_address))
 
       current_order.save!
       current_order.next
@@ -73,6 +72,7 @@ class Spree::AmazonController < Spree::StoreController
 
       update_payment_amount!
       current_order.next! unless current_order.confirm?
+      complete
     else
       render action: :address
     end
@@ -144,7 +144,7 @@ class Spree::AmazonController < Spree::StoreController
       amazon_order.fetch
       
       current_order.email = amazon_order.email
-      update_current_order_address!(:ship_address, amazon_order.address)
+      update_current_order_address!(amazon_order.address)
     end
   end
 
@@ -152,11 +152,17 @@ class Spree::AmazonController < Spree::StoreController
     params.require(:order).permit(permitted_checkout_attributes)
   end
 
-  def update_current_order_address!(address_type, amazon_address, spree_user_address = nil)
-    new_address = Spree::Address.new address_attributes(amazon_address, spree_user_address)
-    new_address.save!
+  def update_current_order_address!(amazon_address, spree_user_address = nil)
+    if current_order.billing_address.nil? && current_order.shipping_address.nil?
+      new_address = Spree::Address.new address_attributes(amazon_address, spree_user_address)
+      new_address.save!
 
-    current_order.send("#{address_type}_id=", new_address.id)
+      current_order.billing_address = new_address
+      current_order.shipping_address = new_address
+    else
+      current_order.shipping_address.update_attributes(address_attributes(amazon_address, spree_user_address))
+    end
+
     current_order.save!
   end
 

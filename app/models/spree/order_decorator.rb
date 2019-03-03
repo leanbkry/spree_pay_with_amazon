@@ -18,18 +18,21 @@ Spree::Order.class_eval do
     amazon_transaction.try(:order_reference)
   end
 
-  module ConfirmationRequiredWithAmazon
-    def confirmation_required?
-      super || payments.valid.map(&:payment_method).compact.any? { |pm| pm.is_a? Spree::Gateway::Amazon }
-    end
+  def confirmation_required?
+    Spree::Config[:always_include_confirm_step] ||
+      payments.valid.map(&:payment_method).compact.any?(&:payment_profiles_supported?) ||
+      payments.valid.map(&:payment_method).compact.any? { |pm| pm.is_a? Spree::Gateway::Amazon } ||
+      # Little hacky fix for #4117
+      # If this wasn't here, order would transition to address state on confirm failure
+      # because there would be no valid payments any more.
+      confirm?
   end
-  prepend ConfirmationRequiredWithAmazon
 
-  module CancelDefaultCreditCardWhenValidAmazon
-    def assign_default_credit_card
-      return if payments.valid.amazon.count > 0
-      super
+  def assign_default_credit_card
+    return if payments.valid.amazon.count > 0
+    if payments.from_credit_card.size == 0 && user_has_valid_default_card? && payment_required?
+      cc = user.default_credit_card
+      payments.create!(payment_method_id: cc.payment_method_id, source: cc, amount: total)
     end
   end
-  prepend CancelDefaultCreditCardWhenValidAmazon
 end
