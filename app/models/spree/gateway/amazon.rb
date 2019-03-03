@@ -180,7 +180,9 @@ module Spree
         payment.currency
       )
 
-      return ActiveMerchant::Billing::Response.new(true, "Success", Hash.from_xml(response.body))
+      hashed_response = Hash.from_xml(response.body)
+      transaction_id = hashed_response["RefundResponse"]["RefundResult"]["RefundDetails"]["AmazonRefundId"]
+      return ActiveMerchant::Billing::Response.new(true, "Success", hashed_response, authorization: transaction_id)
     end
 
     def void(response_code, gateway_options)
