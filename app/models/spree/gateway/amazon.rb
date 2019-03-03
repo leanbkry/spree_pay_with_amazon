@@ -144,6 +144,9 @@ module Spree
 
       response = SpreeAmazon::Response::Capture.new(mws_res)
 
+      payment.response_code = response.response_id
+      payment.save!
+
       t = order.amazon_transaction
       t.capture_id = response.response_id
       t.save!
@@ -203,7 +206,7 @@ module Spree
       if capture_id.nil?
         response = @mws.cancel
       else
-        response = @mws.refund(response_code, order.number, payment.credit_allowed, payment.currency)
+        response = @mws.refund(capture_id, order.number, payment.credit_allowed, payment.currency)
       end
 
       return ActiveMerchant::Billing::Response.new(true, "#{order.number}-cancel", Hash.from_xml(response.body))
