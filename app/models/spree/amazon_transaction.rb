@@ -14,23 +14,7 @@ module Spree
     scope :unsuccessful, -> { where(success: false) }
 
     def name
-      "Pay with Amazon"
-    end
-
-    def cc_type
-      "n/a"
-    end
-
-    def display_number
-      "n/a"
-    end
-
-    def month
-      "n"
-    end
-
-    def year
-      "a"
+      'Amazon Pay'
     end
 
     def reusable_sources(_order)

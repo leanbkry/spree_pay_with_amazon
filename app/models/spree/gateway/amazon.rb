@@ -52,7 +52,7 @@ module Spree
     end
 
     def method_type
-      "amazon"
+      'amazon'
     end
 
     def provider_class
@@ -151,7 +151,7 @@ module Spree
       t.capture_id = response.response_id
       t.save!
 
-      return ActiveMerchant::Billing::Response.new(response.success_state?, "OK",
+      ActiveMerchant::Billing::Response.new(response.success_state?, "OK",
         {
           'response' => mws_res,
           'parsed_response' => response.parse,
@@ -182,7 +182,7 @@ module Spree
 
       hashed_response = Hash.from_xml(response.body)
       transaction_id = hashed_response["RefundResponse"]["RefundResult"]["RefundDetails"]["AmazonRefundId"]
-      return ActiveMerchant::Billing::Response.new(true, "Success", hashed_response, authorization: transaction_id)
+      ActiveMerchant::Billing::Response.new(true, "Success", hashed_response, authorization: transaction_id)
     end
 
     def void(response_code, gateway_options)
@@ -196,7 +196,7 @@ module Spree
         response = @mws.refund(capture_id, gateway_options[:order_id], order.total, order.currency)
       end
 
-      return ActiveMerchant::Billing::Response.new(true, "Success", Hash.from_xml(response.body))
+      ActiveMerchant::Billing::Response.new(true, "Success", Hash.from_xml(response.body))
     end
 
     def cancel(response_code)
@@ -211,7 +211,7 @@ module Spree
         response = @mws.refund(capture_id, order.number, payment.credit_allowed, payment.currency)
       end
 
-      return ActiveMerchant::Billing::Response.new(true, "#{order.number}-cancel", Hash.from_xml(response.body))
+      ActiveMerchant::Billing::Response.new(true, "#{order.number}-cancel", Hash.from_xml(response.body))
     end
 
     private
@@ -221,7 +221,7 @@ module Spree
     end
 
     def extract_order_and_payment_number(gateway_options)
-      gateway_options[:order_id].split("-", 2)
+      gateway_options[:order_id].split('-', 2)
     end
 
     # Amazon requires unique ids. Calling with the same id multiple times means
