@@ -17,6 +17,22 @@ class Spree::AmazonController < Spree::StoreController
   respond_to :json
 
   def address
+    auth_hash = SpreeAmazon::User.find(gateway: gateway,
+      access_token: access_token)
+
+    if spree_current_user.nil?
+      email = auth_hash['info']['email']
+      user = Spree::User.find_by_email(email) || Spree::User.new
+      user.apply_omniauth(auth_hash)
+      user.save!
+      if current_order
+        current_order.associate_user!(user)
+        session[:guest_token] = nil
+      end
+    else
+      spree_current_user.apply_omniauth(auth_hash)
+      spree_current_user.save!
+    end
     current_order.state = 'address'
     current_order.save!
   end
@@ -41,13 +57,13 @@ class Spree::AmazonController < Spree::StoreController
     address = SpreeAmazon::Address.find(
       current_order.amazon_order_reference_id,
       gateway: gateway,
-      address_consent_token: params[:access_token],
+      address_consent_token: access_token
     )
 
     current_order.state = "address"
 
     if address
-      current_order.email = spree_current_user.try(:email) || "pending@amazon.com"
+      current_order.email = current_order.email || spree_current_user.try(:email) || "pending@amazon.com"
       update_current_order_address!(address, spree_current_user.try(:ship_address))
 
       current_order.save!
@@ -117,6 +133,10 @@ class Spree::AmazonController < Spree::StoreController
 
   private
 
+  def access_token
+    params[:access_token]
+  end
+
   def amazon_order
     @amazon_order ||= SpreeAmazon::Order.new(
       reference_id: current_order.amazon_order_reference_id,
@@ -143,12 +163,7 @@ class Spree::AmazonController < Spree::StoreController
   end
 
   def complete_amazon_order!
-    confirm_response = amazon_order.confirm
-    if confirm_response.success
-      amazon_order.fetch
-      current_order.email = amazon_order.email
-      update_current_order_address!(amazon_order.address)
-    end
+    amazon_order.confirm
   end
 
   def checkout_params
