@@ -17,22 +17,8 @@ class Spree::AmazonController < Spree::StoreController
   respond_to :json
 
   def address
-    auth_hash = SpreeAmazon::User.find(gateway: gateway,
-      access_token: access_token)
+    set_user_information!
 
-    if spree_current_user.nil?
-      email = auth_hash['info']['email']
-      user = Spree::User.find_by_email(email) || Spree::User.new
-      user.apply_omniauth(auth_hash)
-      user.save!
-      if current_order
-        current_order.associate_user!(user)
-        session[:guest_token] = nil
-      end
-    else
-      spree_current_user.apply_omniauth(auth_hash)
-      spree_current_user.save!
-    end
     current_order.state = 'address'
     current_order.save!
   end
@@ -160,6 +146,27 @@ class Spree::AmazonController < Spree::StoreController
         seller_order_id: current_order.number,
         store_name: current_order.store.name,
       )
+  end
+
+  def set_user_information!
+    auth_hash = SpreeAmazon::User.find(gateway: gateway,
+      access_token: access_token)
+
+    return unless auth_hash
+
+    if spree_current_user.nil?
+      email = auth_hash['info']['email']
+      user = Spree::User.find_by_email(email) || Spree::User.new
+      user.apply_omniauth(auth_hash)
+      user.save!
+      if current_order
+        current_order.associate_user!(user)
+        session[:guest_token] = nil
+      end
+    else
+      spree_current_user.apply_omniauth(auth_hash)
+      spree_current_user.save!
+    end
   end
 
   def complete_amazon_order!
