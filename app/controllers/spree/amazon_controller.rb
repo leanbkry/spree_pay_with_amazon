@@ -41,6 +41,7 @@ class Spree::AmazonController < Spree::StoreController
     address = SpreeAmazon::Address.find(
       current_order.amazon_order_reference_id,
       gateway: gateway,
+      address_consent_token: params[:access_token],
     )
 
     current_order.state = "address"

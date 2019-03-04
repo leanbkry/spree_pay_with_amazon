@@ -101,7 +101,7 @@
   </div>
 
   <div class="well text-right form-buttons" data-hook="buttons"  id="submit_form" style="display: none;">
-    <%= link_to Spree.t(:save_and_continue), "/amazon_order/delivery", :class => 'btn btn-lg btn-success', :id => 'continue_to_delivery', :remote => true %>
+    <%= link_to Spree.t(:save_and_continue), delivery_amazon_order_path(access_token: params[:access_token]), :class => 'btn btn-lg btn-success', :id => 'continue_to_delivery', :remote => true %>
   </div>
 
   <div id="deliveryOptionDiv" class="col-md-12">
