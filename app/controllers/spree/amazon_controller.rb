@@ -10,21 +10,20 @@
 class Spree::AmazonController < Spree::StoreController
   helper 'spree/orders'
   before_action :check_current_order
+  before_action :gateway, only: [:address, :payment, :delivery]
   before_action :check_amazon_reference_id, only: [:delivery, :complete]
   skip_before_action :verify_authenticity_token, only: %i[payment confirm complete]
 
   respond_to :json
 
   def address
-    @amazon_gateway = gateway
-
     current_order.state = 'address'
     current_order.save!
   end
 
   def payment
     payment_count = current_order.payments.count
-    payment = current_order.payments.valid.amazon.first || current_order.payments.create
+    payment = amazon_payment || current_order.payments.create
     payment.number = "#{params[:order_reference]}_#{payment_count}"
     payment.payment_method = gateway
     payment.source ||= Spree::AmazonTransaction.create(
@@ -66,7 +65,7 @@ class Spree::AmazonController < Spree::StoreController
   end
 
   def confirm
-    if current_order.update_from_params(params, permitted_checkout_attributes, request.headers.env)
+    if !amazon_payment.nil? && current_order.update_from_params(params, permitted_checkout_attributes, request.headers.env)
       while current_order.next && !current_order.confirm?
       end
 
@@ -74,7 +73,7 @@ class Spree::AmazonController < Spree::StoreController
       current_order.next! unless current_order.confirm?
       complete
     else
-      render action: :address
+      redirect_to :back
     end
   end
 
@@ -111,11 +110,11 @@ class Spree::AmazonController < Spree::StoreController
     end
   end
 
-  private
-
   def gateway
     @gateway ||= Spree::Gateway::Amazon.for_currency(current_order.currency)
   end
+
+  private
 
   def amazon_order
     @amazon_order ||= SpreeAmazon::Order.new(
@@ -124,8 +123,12 @@ class Spree::AmazonController < Spree::StoreController
     )
   end
 
+  def amazon_payment
+    current_order.payments.valid.amazon.first
+  end
+
   def update_payment_amount!
-    payment = current_order.payments.valid.amazon.first
+    payment = amazon_payment
     payment.amount = current_order.total
     payment.save!
   end
