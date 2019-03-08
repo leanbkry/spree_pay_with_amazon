@@ -68,7 +68,7 @@ class Spree::AmazonController < Spree::StoreController
   end
 
   def confirm
-    if !amazon_payment.nil? && current_order.update_from_params(params, permitted_checkout_attributes, request.headers.env)
+    if amazon_payment.present? && current_order.update_from_params(params, permitted_checkout_attributes, request.headers.env)
       while current_order.next && !current_order.confirm?
       end
 
