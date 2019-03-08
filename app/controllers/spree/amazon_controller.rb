@@ -149,6 +149,8 @@ class Spree::AmazonController < Spree::StoreController
   end
 
   def set_user_information!
+    return unless Gem::Specification::find_all_by_name('spree_social').any?
+
     auth_hash = SpreeAmazon::User.find(gateway: gateway,
       access_token: access_token)
 
