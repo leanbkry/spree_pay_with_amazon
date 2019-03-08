@@ -192,7 +192,7 @@ class Spree::AmazonController < Spree::StoreController
   end
 
   def address_attributes(amazon_address, spree_user_address = nil)
-    {
+    address_params = {
       firstname: amazon_address.first_name || spree_user_address.try(:first_name) || "Amazon",
       lastname: amazon_address.last_name || spree_user_address.try(:last_name) || "User",
       address1: amazon_address.address1 || spree_user_address.try(:address1) || "N/A",
@@ -203,6 +203,12 @@ class Spree::AmazonController < Spree::StoreController
       state: amazon_address.state || spree_user_address.try(:state),
       country: amazon_address.country || spree_user_address.try(:country)
     }
+
+    if Gem::Specification::find_all_by_name('spree_address_book').any?
+      address_params.merge({user: spree_current_user})
+    end
+
+    address_params
   end
 
   def check_current_order
