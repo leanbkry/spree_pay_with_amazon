@@ -149,26 +149,35 @@ class Spree::AmazonController < Spree::StoreController
   end
 
   def set_user_information!
-    return unless Gem::Specification::find_all_by_name('spree_social').any?
+    return unless Gem::Specification::find_all_by_name('spree_social').any? && access_token
 
     auth_hash = SpreeAmazon::User.find(gateway: gateway,
       access_token: access_token)
 
     return unless auth_hash
 
-    if spree_current_user.nil?
+    authentication = Spree::UserAuthentication.find_by_provider_and_uid(auth_hash['provider'], auth_hash['uid'])
+
+    if authentication.present? && authentication.try(:user).present?
+      user = authentication.user
+      sign_in(user, scope: :spree_user)
+    elsif spree_current_user
+      spree_current_user.apply_omniauth(auth_hash)
+      spree_current_user.save!
+      user = spree_current_user
+    else
       email = auth_hash['info']['email']
       user = Spree::User.find_by_email(email) || Spree::User.new
       user.apply_omniauth(auth_hash)
       user.save!
-      if current_order
-        current_order.associate_user!(user)
-        session[:guest_token] = nil
-      end
-    else
-      spree_current_user.apply_omniauth(auth_hash)
-      spree_current_user.save!
+      sign_in(user, scope: :spree_user)
     end
+
+    # make sure to merge the current order with signed in user previous cart
+    set_current_order
+
+    current_order.associate_user!(user)
+    session[:guest_token] = nil
   end
 
   def complete_amazon_order!
