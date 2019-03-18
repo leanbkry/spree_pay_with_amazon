@@ -136,13 +136,13 @@ class Spree::AmazonController < Spree::StoreController
 
   def update_payment_amount!
     payment = amazon_payment
-    payment.amount = current_order.total
+    payment.amount = current_order.order_total_after_store_credit
     payment.save!
   end
 
   def set_order_reference_details!
     amazon_order.set_order_reference_details(
-        current_order.total,
+        current_order.order_total_after_store_credit,
         seller_order_id: current_order.number,
         store_name: current_order.store.name,
       )

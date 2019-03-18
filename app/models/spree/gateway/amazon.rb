@@ -193,7 +193,7 @@ module Spree
       if capture_id.nil?
         response = @mws.cancel
       else
-        response = @mws.refund(capture_id, gateway_options[:order_id], order.total, order.currency)
+        response = @mws.refund(capture_id, gateway_options[:order_id], order.order_total_after_store_credit, order.currency)
       end
 
       ActiveMerchant::Billing::Response.new(true, "Success", Hash.from_xml(response.body))
