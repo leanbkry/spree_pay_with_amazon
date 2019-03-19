@@ -188,18 +188,24 @@ class Spree::AmazonController < Spree::StoreController
     params.require(:order).permit(permitted_checkout_attributes)
   end
 
-  def update_current_order_address!(amazon_address, spree_user_address = nil)
-    if current_order.billing_address.nil? && current_order.shipping_address.nil?
+  def update_current_order_address!(address_type, amazon_address, spree_user_address = nil)
+    bill_address = current_order.bill_address
+    ship_address = current_order.ship_address
+
+    if ship_address.nil?
       new_address = Spree::Address.new address_attributes(amazon_address, spree_user_address)
       new_address.save!
 
-      current_order.billing_address = new_address
-      current_order.shipping_address = new_address
+      current_order.update_column(:ship_address_id, new_address.id)
     else
-      current_order.shipping_address.update_attributes(address_attributes(amazon_address, spree_user_address))
+      ship_address.update_attributes(address_attributes(amazon_address, spree_user_address))
     end
 
-    current_order.save!
+    if current_order.bill_address_id != current_order.ship_address_id
+      current_order.update_column(:bill_address_id, ship_address.id)
+      bill_address.destroy! if bill_address
+    end
+
   end
 
   def address_attributes(amazon_address, spree_user_address = nil)
