@@ -222,7 +222,7 @@ class Spree::AmazonController < Spree::StoreController
     }
 
     if Gem::Specification::find_all_by_name('spree_address_book').any?
-      address_params.merge({user: spree_current_user})
+      address_params = address_params.merge(user: spree_current_user)
     end
 
     address_params
