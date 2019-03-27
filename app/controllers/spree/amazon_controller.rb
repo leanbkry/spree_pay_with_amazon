@@ -10,31 +10,30 @@
 class Spree::AmazonController < Spree::StoreController
   helper 'spree/orders'
   before_action :check_current_order
+  before_action :gateway, only: [:address, :payment, :delivery]
   before_action :check_amazon_reference_id, only: [:delivery, :complete]
   skip_before_action :verify_authenticity_token, only: %i[payment confirm complete]
 
   respond_to :json
 
   def address
-    @amazon_gateway = gateway
+    set_user_information!
 
     current_order.state = 'address'
     current_order.save!
   end
 
   def payment
-    payment_count = current_order.payments.count
-    payment = current_order.payments.valid.amazon.first || current_order.payments.create
-    payment.number = "#{params[:order_reference]}_#{payment_count}"
+    payment = amazon_payment || current_order.payments.create
     payment.payment_method = gateway
     payment.source ||= Spree::AmazonTransaction.create(
       order_reference: params[:order_reference],
       order_id: current_order.id,
       retry: current_order.amazon_transactions.unsuccessful.any?
     )
-    
+
     payment.save!
-    
+
     render json: {}
   end
 
@@ -42,14 +41,14 @@ class Spree::AmazonController < Spree::StoreController
     address = SpreeAmazon::Address.find(
       current_order.amazon_order_reference_id,
       gateway: gateway,
+      address_consent_token: access_token
     )
 
     current_order.state = "address"
 
     if address
-      current_order.email = spree_current_user.try(:email) || "pending@amazon.com"
-      update_current_order_address!(:ship_address, address, spree_current_user.try(:ship_address))
-      update_current_order_address!(:bill_address, address, spree_current_user.try(:bill_address))
+      current_order.email = current_order.email || spree_current_user.try(:email) || "pending@amazon.com"
+      update_current_order_address!(address, spree_current_user.try(:ship_address))
 
       current_order.save!
       current_order.next
@@ -67,28 +66,29 @@ class Spree::AmazonController < Spree::StoreController
   end
 
   def confirm
-    if current_order.update_from_params(params, permitted_checkout_attributes, request.headers.env)
+    if amazon_payment.present? && current_order.update_from_params(params, permitted_checkout_attributes, request.headers.env)
       while current_order.next && !current_order.confirm?
       end
 
       update_payment_amount!
       current_order.next! unless current_order.confirm?
+      complete
     else
-      render action: :address
+      redirect_to :back
     end
   end
 
   def complete
     @order = current_order
     authorize!(:edit, @order, cookies.signed[:guest_token])
-    
+
     unless @order.amazon_transaction.retry
       amazon_response = set_order_reference_details!
       unless amazon_response.constraints.blank?
         redirect_to address_amazon_order_path, notice: amazon_response.constraints and return
       end
     end
-    
+
     complete_amazon_order!
 
     if @order.confirm? && @order.next
@@ -111,10 +111,14 @@ class Spree::AmazonController < Spree::StoreController
     end
   end
 
-  private
-
   def gateway
     @gateway ||= Spree::Gateway::Amazon.for_currency(current_order.currency)
+  end
+
+  private
+
+  def access_token
+    params[:access_token]
   end
 
   def amazon_order
@@ -124,54 +128,102 @@ class Spree::AmazonController < Spree::StoreController
     )
   end
 
+  def amazon_payment
+    current_order.payments.valid.amazon.first
+  end
+
   def update_payment_amount!
-    payment = current_order.payments.valid.amazon.first
-    payment.amount = current_order.total
+    payment = amazon_payment
+    payment.amount = current_order.order_total_after_store_credit
     payment.save!
   end
 
   def set_order_reference_details!
     amazon_order.set_order_reference_details(
-        current_order.total,
+        current_order.order_total_after_store_credit,
         seller_order_id: current_order.number,
         store_name: current_order.store.name,
       )
   end
-  
-  def complete_amazon_order!
-    confirm_response = amazon_order.confirm
-    if confirm_response.success
-      amazon_order.fetch
-      
-      current_order.email = amazon_order.email
-      update_current_order_address!(:ship_address, amazon_order.address)
+
+  def set_user_information!
+    return unless Gem::Specification::find_all_by_name('spree_social').any? && access_token
+
+    auth_hash = SpreeAmazon::User.find(gateway: gateway,
+      access_token: access_token)
+
+    return unless auth_hash
+
+    authentication = Spree::UserAuthentication.find_by_provider_and_uid(auth_hash['provider'], auth_hash['uid'])
+
+    if authentication.present? && authentication.try(:user).present?
+      user = authentication.user
+      sign_in(user, scope: :spree_user)
+    elsif spree_current_user
+      spree_current_user.apply_omniauth(auth_hash)
+      spree_current_user.save!
+      user = spree_current_user
+    else
+      email = auth_hash['info']['email']
+      user = Spree::User.find_by_email(email) || Spree::User.new
+      user.apply_omniauth(auth_hash)
+      user.save!
+      sign_in(user, scope: :spree_user)
     end
+
+    # make sure to merge the current order with signed in user previous cart
+    set_current_order
+
+    current_order.associate_user!(user)
+    session[:guest_token] = nil
+  end
+
+  def complete_amazon_order!
+    amazon_order.confirm
   end
 
   def checkout_params
     params.require(:order).permit(permitted_checkout_attributes)
   end
 
-  def update_current_order_address!(address_type, amazon_address, spree_user_address = nil)
-    new_address = Spree::Address.new address_attributes(amazon_address, spree_user_address)
-    new_address.save!
+  def update_current_order_address!(amazon_address, spree_user_address = nil)
+    bill_address = current_order.bill_address
+    ship_address = current_order.ship_address
 
-    current_order.send("#{address_type}_id=", new_address.id)
-    current_order.save!
+    if ship_address.nil?
+      new_address = Spree::Address.new address_attributes(amazon_address, spree_user_address)
+      new_address.save!
+
+      current_order.update_column(:ship_address_id, new_address.id)
+    else
+      ship_address.update_attributes(address_attributes(amazon_address, spree_user_address))
+    end
+
+    if current_order.bill_address_id != current_order.ship_address_id
+      current_order.update_column(:bill_address_id, current_order.ship_address_id)
+      bill_address.destroy! if bill_address
+    end
+
   end
 
   def address_attributes(amazon_address, spree_user_address = nil)
-    {
+    address_params = {
       firstname: amazon_address.first_name || spree_user_address.try(:first_name) || "Amazon",
       lastname: amazon_address.last_name || spree_user_address.try(:last_name) || "User",
       address1: amazon_address.address1 || spree_user_address.try(:address1) || "N/A",
-      address2: amazon_address.address2 || spree_user_address.try(:address2) || "N/A",
-      phone: amazon_address.phone || spree_user_address.try(:phone) || "N/A",
+      address2: amazon_address.address2 || spree_user_address.try(:address2),
+      phone: amazon_address.phone || spree_user_address.try(:phone) || "000-000-0000",
       city: amazon_address.city || spree_user_address.try(:city),
       zipcode: amazon_address.zipcode || spree_user_address.try(:zipcode),
-      state_name: amazon_address.state_name || spree_user_address.try(:state_name),
+      state: amazon_address.state || spree_user_address.try(:state),
       country: amazon_address.country || spree_user_address.try(:country)
     }
+
+    if Gem::Specification::find_all_by_name('spree_address_book').any?
+      address_params = address_params.merge(user: spree_current_user)
+    end
+
+    address_params
   end
 
   def check_current_order

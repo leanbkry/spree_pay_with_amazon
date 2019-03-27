@@ -7,25 +7,25 @@
 <%# @license     http://opensource.org/licenses/Apache-2.0  Apache License, Version 2.0 %>
 <%# %>
 <% content_for :head do %>
-  <meta name="viewport" content="width-device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 
   <script type='text/javascript'>
     window.onAmazonLoginReady = function() {
-      amazon.Login.setClientId('<%= @amazon_gateway.preferred_client_id %>');
-      <% if @amazon_gateway.preferred_site_domain.present? %>
-        amazon.Login.setSiteDomain('<%= @amazon_gateway.preferred_site_domain %>');
+      amazon.Login.setClientId('<%= @gateway.preferred_client_id %>');
+      <% if @gateway.preferred_site_domain.present? %>
+        amazon.Login.setSiteDomain('<%= @gateway.preferred_site_domain %>');
       <% end %>
       $('#continue_to_delivery').click();
     };
   </script>
 
-<%= javascript_include_tag @amazon_gateway.widgets_url %>
+<%= javascript_include_tag @gateway.widgets_url %>
 
   <script>
     $( document ).ready(function() {
       <% unless current_order.amazon_transaction.try(:retry) %>
         new OffAmazonPayments.Widgets.AddressBook({
-          sellerId: '<%= @amazon_gateway.preferred_merchant_id %>',
+          sellerId: '<%= @gateway.preferred_merchant_id %>',
           agreementType: 'orderreference',
           onOrderReferenceCreate: function(orderReference) {
               order_reference = orderReference.getAmazonOrderReferenceId();
@@ -42,7 +42,7 @@
         }).bind("addressBookWidgetDiv");
       <% else %>
         new OffAmazonPayments.Widgets.AddressBook({
-          sellerId: '<%= @amazon_gateway.preferred_merchant_id %>',
+          sellerId: '<%= @gateway.preferred_merchant_id %>',
           agreementType: 'orderreference',
           amazonOrderReferenceId: '<%= current_order.amazon_order_reference_id %>',
           // amazonOrderReferenceId obtained from Address widget
@@ -55,7 +55,7 @@
           }
         }).bind("addressBookWidgetDiv");
         new OffAmazonPayments.Widgets.Wallet({
-          sellerId: '<%= @amazon_gateway.preferred_merchant_id %>',
+          sellerId: '<%= @gateway.preferred_merchant_id %>',
           amazonOrderReferenceId: '<%= current_order.amazon_order_reference_id %>',
           onPaymentSelect: function(orderReference) {
             jQuery.post(
@@ -74,7 +74,7 @@
           }
         }).bind("walletWidgetDiv");
       <% end %>
-      
+
       $('#continue_to_delivery').click();
       $('#continue_to_delivery').click(function () {
         $("#deliveryOptionDiv").html('Loading...');
@@ -101,7 +101,7 @@
   </div>
 
   <div class="well text-right form-buttons" data-hook="buttons"  id="submit_form" style="display: none;">
-    <%= link_to Spree.t(:save_and_continue), "/amazon_order/delivery", :class => 'btn btn-lg btn-success', :id => 'continue_to_delivery', :remote => true %>
+    <%= link_to Spree.t(:save_and_continue), delivery_amazon_order_path(access_token: params[:access_token]), :class => 'btn btn-lg btn-success', :id => 'continue_to_delivery', :remote => true %>
   </div>
 
   <div id="deliveryOptionDiv" class="col-md-12">

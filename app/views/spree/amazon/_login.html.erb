@@ -9,7 +9,9 @@
 
 <%
   gateway = Spree::Gateway::Amazon.for_currency(current_order(create_order_if_necessary: true).currency)
-  button_type = 'PwA' unless local_assigns[:button_type]
+  button_type = 'Pay' unless local_assigns[:button_type]
+  button_color = 'LightGray' unless local_assigns[:button_color]
+  button_size = 'medium' unless local_assigns[:button_size]
   return_path = '/amazon_order/address' unless local_assigns[:return_path]
 %>
 
@@ -30,6 +32,8 @@
   var authRequest;
   OffAmazonPayments.Button("AmazonPayButton", "<%= gateway.preferred_merchant_id %>", {
     type: '<%= button_type %>',
+    color: '<%= button_color %>',
+    size:  '<%= button_size %>',
     authorization: function() {
       loginOptions =
         {scope: "profile postal_code payments:widget payments:shipping_address", popup: "true"};

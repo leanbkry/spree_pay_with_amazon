@@ -7,7 +7,7 @@
 <%# @license     http://opensource.org/licenses/Apache-2.0  Apache License, Version 2.0 %>
 <%# %>
 new OffAmazonPayments.Widgets.Wallet({
-  sellerId: '<%= @amazon_gateway.preferred_merchant_id %>',
+  sellerId: '<%= @gateway.preferred_merchant_id %>',
   onPaymentSelect: function(orderReference) {
     jQuery.post(
       '/amazon_order/payment',
