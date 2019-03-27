@@ -26,7 +26,7 @@ module SpreeAmazon
               'email' => response['email'],
               'name' => response['name']
             },
-            'uid' => response['userid']
+            'uid' => response['user_id']
           }
         end
       end
