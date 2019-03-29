@@ -12,6 +12,7 @@ class Spree::AmazonController < Spree::StoreController
   before_action :check_current_order
   before_action :gateway, only: [:address, :payment, :delivery]
   before_action :check_amazon_reference_id, only: [:delivery, :complete]
+  before_action :normalize_addresses, only: [:address, :delivery]
   skip_before_action :verify_authenticity_token, only: %i[payment confirm complete]
 
   respond_to :json
@@ -19,8 +20,12 @@ class Spree::AmazonController < Spree::StoreController
   def address
     set_user_information!
 
-    current_order.state = 'address'
-    current_order.save!
+    if current_order.cart?
+      current_order.next!
+    else
+      current_order.state = 'address'
+      current_order.save!
+    end
   end
 
   def payment
@@ -44,7 +49,7 @@ class Spree::AmazonController < Spree::StoreController
       address_consent_token: access_token
     )
 
-    current_order.state = "address"
+    current_order.state = 'address'
 
     if address
       current_order.email = current_order.email || spree_current_user.try(:email) || "pending@amazon.com"
@@ -67,7 +72,7 @@ class Spree::AmazonController < Spree::StoreController
 
   def confirm
     if amazon_payment.present? && current_order.update_from_params(params, permitted_checkout_attributes, request.headers.env)
-      while current_order.next && !current_order.confirm?
+      while !current_order.confirm? && current_order.next
       end
 
       update_payment_amount!
@@ -190,20 +195,26 @@ class Spree::AmazonController < Spree::StoreController
     bill_address = current_order.bill_address
     ship_address = current_order.ship_address
 
-    if ship_address.nil?
-      new_address = Spree::Address.new address_attributes(amazon_address, spree_user_address)
-      new_address.save!
+    new_address = Spree::Address.new address_attributes(amazon_address, spree_user_address)
+    if spree_address_book_available?
+      user_address = spree_current_user.addresses.find do |address|
+        address.same_as?(new_address)
+      end
 
-      current_order.update_column(:ship_address_id, new_address.id)
+      if user_address
+        current_order.update_column(:ship_address_id, user_address.id)
+      else
+        new_address.save!
+        current_order.update_column(:ship_address_id, new_address.id)
+      end
     else
-      ship_address.update_attributes(address_attributes(amazon_address, spree_user_address))
+      if ship_address.nil? || ship_address.empty?
+        new_address.save!
+        current_order.update_column(:ship_address_id, new_address.id)
+      else
+        ship_address.update_attributes(address_attributes(amazon_address, spree_user_address))
+      end
     end
-
-    if current_order.bill_address_id != current_order.ship_address_id
-      current_order.update_column(:bill_address_id, current_order.ship_address_id)
-      bill_address.destroy! if bill_address
-    end
-
   end
 
   def address_attributes(amazon_address, spree_user_address = nil)
@@ -219,7 +230,7 @@ class Spree::AmazonController < Spree::StoreController
       country: amazon_address.country || spree_user_address.try(:country)
     }
 
-    if Gem::Specification::find_all_by_name('spree_address_book').any?
+    if spree_address_book_available?
       address_params = address_params.merge(user: spree_current_user)
     end
 
@@ -236,5 +247,25 @@ class Spree::AmazonController < Spree::StoreController
     unless current_order.amazon_order_reference_id
       head :ok
     end
+  end
+
+  def spree_address_book_available?
+    Gem::Specification::find_all_by_name('spree_address_book').any?
+  end
+
+  def normalize_addresses
+    # ensure that there is no validation errors and addresses were saved
+    return unless current_order.bill_address && current_order.ship_address && spree_address_book_available?
+
+    bill_address = current_order.bill_address
+    ship_address = current_order.ship_address
+    if current_order.bill_address_id != current_order.ship_address_id && bill_address.same_as?(ship_address)
+      current_order.update_column(:bill_address_id, ship_address.id)
+      bill_address.destroy
+    else
+      bill_address.update_attribute(:user_id, spree_current_user.try(:id))
+    end
+
+    ship_address.update_attribute(:user_id, spree_current_user.try(:id))
   end
 end
