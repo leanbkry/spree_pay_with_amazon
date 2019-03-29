@@ -222,7 +222,7 @@ class Spree::AmazonController < Spree::StoreController
       firstname: amazon_address.first_name || spree_user_address.try(:first_name) || "Amazon",
       lastname: amazon_address.last_name || spree_user_address.try(:last_name) || "User",
       address1: amazon_address.address1 || spree_user_address.try(:address1) || "N/A",
-      address2: amazon_address.address2 || spree_user_address.try(:address2),
+      address2: amazon_address.address2,
       phone: amazon_address.phone || spree_user_address.try(:phone) || "000-000-0000",
       city: amazon_address.city || spree_user_address.try(:city),
       zipcode: amazon_address.zipcode || spree_user_address.try(:zipcode),
