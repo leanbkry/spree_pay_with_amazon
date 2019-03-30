@@ -97,6 +97,7 @@ class Spree::AmazonController < Spree::StoreController
     complete_amazon_order!
 
     if @order.confirm? && @order.next
+      @order.update_column(:bill_address, @order.ship_address_id)
       @current_order = nil
       flash.notice = Spree.t(:order_processed_successfully)
       flash[:order_completed] = true
