@@ -23,5 +23,6 @@ end
 
 gem 'pg'
 gem 'mysql2'
+gem 'openssl', '~> 2.1.0'
 
 gemspec

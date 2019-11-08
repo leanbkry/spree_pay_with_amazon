@@ -15,7 +15,7 @@ Gem::Specification.new do |s|
   s.summary     = 'Spree Amazon Payments'
   s.description = ''
 
-  s.required_ruby_version     = '>= 2.1.0'
+  s.required_ruby_version     = '>= 2.3.0'
   s.required_rubygems_version = '>= 1.8.23'
 
   s.author    = 'Amazon Payments'
@@ -26,6 +26,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'spree_core'
   s.add_dependency 'pay_with_amazon'
   s.add_dependency 'amazon_pay'
+  s.add_dependency 'openssl', '~> 2.1.0'
 
   s.add_development_dependency 'capybara'
   s.add_development_dependency 'coffee-rails'
