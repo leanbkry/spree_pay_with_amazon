@@ -251,7 +251,7 @@ module AmazonPay
 
     sorted_headers.each do |key, value|
       if value.is_a?(Array)
-        value = collect_sub_vals(value)
+        value = collect_sub_val(value)
       else
         query_parameters << "#{key}:#{value}"
       end

@@ -9,7 +9,7 @@
 ##
 module Spree
   class AmazonTransaction < ActiveRecord::Base
-    has_many :payments, :as => :source
+    has_many :payments, as: :source
 
     scope :unsuccessful, -> { where(success: false) }
 
@@ -42,23 +42,24 @@ module Spree
     end
 
     def actions
-      %w{capture credit void close}
+      %w[capture credit void close]
     end
 
     def close!(payment)
       return true unless can_close?(payment)
 
-      amazon_order = SpreeAmazon::Order.new(
-        gateway: payment.payment_method,
-        reference_id: order_reference
-      )
+      params = {
+        closureReason: 'No more charges required',
+        cancelPendingCharges: false
+      }
 
-      response = amazon_order.close_order_reference!
+      response = AmazonPay::ChargePermisson.close(order_reference, params)
 
       if response.success?
         update_attributes(closed_at: DateTime.now)
       else
-        gateway_error(response)
+        raise Spree::Core::GatewayError.new(text)
+        #gateway_error(response)
       end
     end
 
