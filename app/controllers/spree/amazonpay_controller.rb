@@ -25,7 +25,7 @@ class Spree::AmazonpayController < Spree::StoreController
 
     params = { webCheckoutDetail:
               { checkoutReviewReturnUrl: 'http://localhost:3000/amazonpay/confirm' },
-               storeId: @gateway.preferred_client_id }
+               storeId: gateway.preferred_client_id }
 
     render json: AmazonPay::CheckoutSession.create(params)
   end
@@ -104,7 +104,7 @@ class Spree::AmazonpayController < Spree::StoreController
 
     payments = @order.payments
     payment = payments.create
-    payment.payment_method = @gateway
+    payment.payment_method = gateway
     payment.source ||= Spree::AmazonTransaction.create(
       order_reference: response[:chargePermissionId],
       order_id: @order.id,
@@ -140,10 +140,8 @@ class Spree::AmazonpayController < Spree::StoreController
 
   def gateway
     @gateway ||= Spree::Gateway::Amazon.for_currency(current_order.currency)
-    AmazonPay.region = @gateway.preferred_region
-    AmazonPay.public_key_id = @gateway.preferred_public_key_id
-    AmazonPay.sandbox = @gateway.preferred_test_mode
-    AmazonPay.private_key = @gateway.preferred_private_key_file_location
+    @gateway.load_amazon_pay
+    @gateway
   end
 
   private

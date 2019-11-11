@@ -43,7 +43,8 @@ module AmazonPay
       'post' => Net::HTTP::Post,
       'get' => Net::HTTP::Get,
       'put' => Net::HTTP::Put,
-      'patch' => Net::HTTP::Patch
+      'patch' => Net::HTTP::Patch,
+      'delete' => Net::HTTP::Delete
     }
 
     url = base_api_url + url

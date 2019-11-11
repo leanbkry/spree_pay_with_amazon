@@ -193,14 +193,14 @@ module Spree
       end
     end
 
-    private
-
     def load_amazon_pay
       AmazonPay.region = preferred_region
       AmazonPay.public_key_id = preferred_public_key_id
       AmazonPay.sandbox = preferred_test_mode
       AmazonPay.private_key = preferred_private_key_file_location
     end
+
+    private
 
     def update_for_backwards_compatibility(capture_id)
       capture_id[20] == 'A' ? capture_id[20, 1] = 'C' : capture_id

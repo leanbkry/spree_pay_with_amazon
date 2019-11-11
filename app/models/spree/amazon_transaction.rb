@@ -50,29 +50,32 @@ module Spree
 
       params = {
         closureReason: 'No more charges required',
-        cancelPendingCharges: false
+        cancelPendingCharges: true
       }
 
-      response = AmazonPay::ChargePermisson.close(order_reference, params)
+      payment.payment_method.load_amazon_pay
 
-      if response.success?
-        update_attributes(closed_at: DateTime.now)
+      response = AmazonPay::ChargePermission.close(order_reference, params)
+
+      success = response.code.to_i == 200 || response.code.to_i == 201
+      body = JSON.parse(response.body, symbolize_names: true)
+
+      if success
+        update_attributes(closed_at: Time.current)
       else
-        raise Spree::Core::GatewayError.new(text)
-        #gateway_error(response)
+        gateway_error(body)
       end
     end
 
     private
 
     def gateway_error(error)
-      text = error.params['message'] || error.params['response_reason_text'] || error.message
+      text = error[:message][0...255] || error[:reasonCode]
 
       logger.error(Spree.t(:gateway_error))
-      logger.error("  #{error.to_yaml}")
+      logger.error("  #{error}")
 
-      raise Spree::Core::GatewayError.new(text)
+      raise Spree::Core::GatewayError, text
     end
-
   end
 end
