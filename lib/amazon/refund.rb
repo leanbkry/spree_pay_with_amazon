@@ -1,13 +1,11 @@
 module AmazonPay
   class Refund
     def self.create(params)
-      response = AmazonPay.request('post', 'refunds', params)
-      response.body
+      AmazonPay.request('post', 'refunds', params)
     end
 
     def self.get(refund_id)
-      response = AmazonPay.request('get', "refunds/#{refund_id}")
-      response.body
+      AmazonPay.request('get', "refunds/#{refund_id}")
     end
   end
 end

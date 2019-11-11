@@ -31,10 +31,10 @@ module Spree
 
     def widgets_url
       {
-        'us' => "https://static-na.payments-amazon.com/checkout.js",
-        'uk' => "https://static-eu.payments-amazon.com/checkout.js",
-        'de' => "https://static-eu.payments-amazon.com/checkout.js",
-        'jp' => "https://static-fe.payments-amazon.com/checkout.js",
+        'us' => 'https://static-na.payments-amazon.com/checkout.js',
+        'uk' => 'https://static-eu.payments-amazon.com/checkout.js',
+        'de' => 'https://static-eu.payments-amazon.com/checkout.js',
+        'jp' => 'https://static-fe.payments-amazon.com/checkout.js'
       }.fetch(preferred_region)
     end
 
@@ -58,13 +58,13 @@ module Spree
       true
     end
 
-    def authorize(amount, amazon_checkout, gateway_options={})
+    def authorize(amount, amazon_transaction, gateway_options={})
       return ActiveMerchant::Billing::Response.new(true, 'Success', {}) if amount < 0
 
       load_amazon_pay
 
       params = {
-        chargePermissionId: amazon_checkout.order_reference,
+        chargePermissionId: amazon_transaction.order_reference,
         chargeAmount: {
           amount: (amount / 100.0).to_s,
           currencyCode: gateway_options[:currency]
@@ -76,17 +76,17 @@ module Spree
       response = AmazonPay::Charge.create(params)
 
       success = response.code.to_i == 200 || response.code.to_i == 201
+      body = JSON.parse(response.body, symbolize_names: true)
       message = 'Success'
       soft_decline = false
 
       unless success
-        body = JSON.parse(response.body, symbolize_names: true)
         message = body[:message]
         soft_decline = body[:reasonCode] == 'SoftDeclined'
       end
 
       # Saving information in last amazon transaction for error flow in amazon controller
-      amazon_checkout.update!(
+      amazon_transaction.update!(
         success: success,
         message: message,
         capture_id: body[:chargeId],
@@ -96,8 +96,11 @@ module Spree
       ActiveMerchant::Billing::Response.new(success, message, 'response' => response.body)
     end
 
-    def capture(amount, amazon_checkout, gateway_options={})
-      return credit(amount.abs, nil, nil, gateway_options) if amount < 0
+    def capture(amount, response_code, gateway_options={})
+      return credit(amount.abs, response_code, gateway_options) if amount < 0
+
+      payment = Spree::Payment.find_by!(response_code: response_code)
+      amazon_transaction = payment.source
 
       load_amazon_pay
 
@@ -106,10 +109,12 @@ module Spree
           amount: (amount / 100.0).to_s,
           currencyCode: gateway_options[:currency]
         },
-        softDescriptor: 'Store Name'
+        softDescriptor: Spree::Store.current.name
       }
 
-      response = AmazonPay::Charge.capture(amazon_checkout.capture_id, params)
+      capture_id = update_for_backwards_compatibility(amazon_transaction.capture_id)
+
+      response = AmazonPay::Charge.capture(capture_id, params)
 
       success = response.code.to_i == 200 || response.code.to_i == 201
       message = 'Success'
@@ -122,68 +127,79 @@ module Spree
       end
 
       # Saving information in last amazon transaction for error flow in amazon controller
-      amazon_checkout.update!(
+      amazon_transaction.update!(
         success: success,
         message: message,
         soft_decline: soft_decline,
         retry: !success
       )
 
-      ActiveMerchant::Billing::Response.new(success, message, 'response' => response.body)
+      ActiveMerchant::Billing::Response.new(success, message)
     end
 
-    def purchase(amount, amazon_checkout, gateway_options={})
-      #auth_result = authorize(amount, amazon_checkout, gateway_options)
-      #if auth_result.success?
-        capture(amount, amazon_checkout, gateway_options)
-      #else
-      #  auth_result
-      #end
+    def purchase(amount, amazon_checkout, gateway_options = {})
+      capture(amount, amazon_checkout.capture_id, gateway_options)
     end
 
-    def credit(amount, _response_code, gateway_options = {})
-      payment = gateway_options[:originator].payment
+    def credit(amount, response_code, _gateway_options = {})
+      payment = Spree::Payment.find_by!(response_code: response_code)
       amazon_transaction = payment.source
 
-      load_amazon_mws(amazon_transaction.order_reference)
-      mws_res = @mws.refund(
-        amazon_transaction.capture_id,
-        operation_unique_id(payment),
-        amount / 100.00,
-        payment.currency
-      )
+      load_amazon_pay
 
-      response = SpreeAmazon::Response::Refund.new(mws_res)
-      ActiveMerchant::Billing::Response.new(true, "Success", response.parse, authorization: response.response_id)
-    end
+      capture_id = update_for_backwards_compatibility(amazon_transaction.capture_id)
 
-    def void(response_code, gateway_options)
-      order = Spree::Order.find_by(:number => gateway_options[:order_id].split("-")[0])
-      load_amazon_mws(order.amazon_order_reference_id)
-      capture_id = order.amazon_transaction.capture_id
+      params = {
+        chargeId: capture_id,
+        refundAmount: {
+          amount: (amount / 100.0).to_s,
+          currencyCode: payment.currency
+        },
+        softDescriptor: Spree::Store.current.name
+      }
 
-      if capture_id.nil?
-        response = @mws.cancel
-      else
-        response = @mws.refund(capture_id, gateway_options[:order_id], order.order_total_after_store_credit, order.currency)
+      response = AmazonPay::Refund.create(params)
+
+      success = response.code.to_i == 200 || response.code.to_i == 201
+      body = JSON.parse(response.body, symbolize_names: true)
+      message = 'Success'
+
+      unless success
+        message = body[:message]
       end
 
-      ActiveMerchant::Billing::Response.new(true, "Success", Hash.from_xml(response.body))
+      ActiveMerchant::Billing::Response.new(success, message,
+                                            authorization: body[:refundId])
+    end
+
+    def void(response_code, gateway_options = {})
+      cancel(response_code || extract_order_and_payment_number(gateway_options[:order_id]).second)
     end
 
     def cancel(response_code)
       payment = Spree::Payment.find_by!(response_code: response_code)
-      order = payment.order
-      load_amazon_mws(payment.source.order_reference)
-      capture_id = order.amazon_transaction.capture_id
+      amazon_transaction = payment.source
 
-      if capture_id.nil?
-        response = @mws.cancel
+      if amazon_transaction.capture_id.nil?
+
+        params = {
+          cancellationReason: 'Cancelled Order'
+        }
+
+        response = AmazonPay::Charge.cancel(amazon_transaction.order_reference, params)
+
+        success = response.code.to_i == 200 || response.code.to_i == 201
+        body = JSON.parse(response.body, symbolize_names: true)
+        message = 'Success'
+
+        unless success
+          message = body[:message]
+        end
+
+        ActiveMerchant::Billing::Response.new(success, message)
       else
-        response = @mws.refund(capture_id, order.number, payment.credit_allowed, payment.currency)
+        credit(payment.credit_allowed * 100, response_code)
       end
-
-      ActiveMerchant::Billing::Response.new(true, "#{order.number}-cancel", Hash.from_xml(response.body))
     end
 
     private
@@ -195,22 +211,12 @@ module Spree
       AmazonPay.private_key = preferred_private_key_file_location
     end
 
-    def extract_order_and_payment_number(gateway_options)
-      gateway_options[:order_id].split('-', 2)
-    end
-
-    # Amazon requires unique ids. Calling with the same id multiple times means
-    # the result of the previous call will be returned again. This can be good
-    # for things like asynchronous retries, but would break things like multiple
-    # captures on a single authorization.
-    def operation_unique_id(payment)
-      "#{payment.number}-#{random_suffix}"
-    end
-
-    # A random string of lowercase alphanumeric characters (i.e. "base 36")
-    def random_suffix
-      length = 10
-      SecureRandom.random_number(36 ** length).to_s(36).rjust(length, '0')
+    def update_for_backwards_compatibility(capture_id)
+      if capture_id[20] == 'A'
+        capture_id[20, 1] = 'C'
+      else
+        capture_id
+      end
     end
 
     # Allows simulating errors in sandbox mode if the *last* name of the

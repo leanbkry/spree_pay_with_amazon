@@ -114,7 +114,8 @@ class Spree::AmazonpayController < Spree::StoreController
       amazon_transaction = @order.amazon_transaction
       amazon_transaction.reload
       if amazon_transaction.soft_decline
-        redirect_to confirm_amazonpay_path(amazonCheckoutSessionId: amazon_checkout_session_id), notice: amazon_transaction.message
+        redirect_to confirm_amazonpay_path(amazonCheckoutSessionId: amazon_checkout_session_id),
+                    notice: amazon_transaction.message
       else
         @order.amazon_transactions.destroy_all
         @order.save!
