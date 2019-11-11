@@ -65,7 +65,7 @@ class Spree::AmazonpayController < Spree::StoreController
       },
       paymentDetail: {
         paymentIntent: 'Authorize',
-        canHandlePendingAuthorization: true,
+        canHandlePendingAuthorization: false,
         chargeAmount: {
           amount: current_order.order_total_after_store_credit,
           currencyCode: current_currency

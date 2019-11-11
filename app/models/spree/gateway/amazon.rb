@@ -61,6 +61,12 @@ module Spree
     def authorize(amount, amazon_transaction, gateway_options={})
       return ActiveMerchant::Billing::Response.new(true, 'Success', {}) if amount < 0
 
+      # If there already is a capture_id available then we don't need to create
+      # a charage and can immediately capture
+      if amazon_transaction.try(:capture_id)
+        return capture(amount, amazon_transaction.capture_id, gateway_options)
+      end
+
       load_amazon_pay
 
       params = {
@@ -69,8 +75,8 @@ module Spree
           amount: (amount / 100.0).to_s,
           currencyCode: gateway_options[:currency]
         },
-        captureNow: true,
-        canHandlePendingAuthorization: true
+        captureNow: false,
+        canHandlePendingAuthorization: false
       }
 
       response = AmazonPay::Charge.create(params)
@@ -104,7 +110,7 @@ module Spree
           amount: (amount / 100.0).to_s,
           currencyCode: gateway_options[:currency]
         },
-        softDescriptor: Spree::Store.current.name
+        softDescriptor: Spree::Store.current.try(:name)
       }
 
       capture_id = update_for_backwards_compatibility(amazon_transaction.capture_id)
@@ -145,7 +151,7 @@ module Spree
           amount: (amount / 100.0).to_s,
           currencyCode: payment.currency
         },
-        softDescriptor: Spree::Store.current.name
+        softDescriptor: Spree::Store.current.try(:name)
       }
 
       response = AmazonPay::Refund.create(params)
@@ -165,6 +171,8 @@ module Spree
     def cancel(response_code)
       payment = Spree::Payment.find_by!(response_code: response_code)
       amazon_transaction = payment.source
+
+      load_amazon_pay
 
       if amazon_transaction.capture_id.nil?
 
