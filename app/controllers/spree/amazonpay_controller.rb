@@ -86,6 +86,13 @@ class Spree::AmazonpayController < Spree::StoreController
   def complete
     response = AmazonPay::CheckoutSession.get(amazon_checkout_session_id)
 
+    status_detail = response[:statusDetail]
+
+    unless status_detail[:state] == 'Completed'
+      redirect_to cart_path, notice: status_detail[:reasonDescription]
+      return
+    end
+
     @order = current_order
 
     payments = @order.payments
