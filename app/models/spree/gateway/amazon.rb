@@ -77,13 +77,8 @@ module Spree
 
       success = response.code.to_i == 200 || response.code.to_i == 201
       body = JSON.parse(response.body, symbolize_names: true)
-      message = 'Success'
-      soft_decline = false
-
-      unless success
-        message = body[:message]
-        soft_decline = body[:reasonCode] == 'SoftDeclined'
-      end
+      message = success ? 'Success' : body[:message][0...255]
+      soft_decline = success ? nil : body[:reasonCode] == 'SoftDeclined'
 
       # Saving information in last amazon transaction for error flow in amazon controller
       amazon_transaction.update!(
@@ -93,7 +88,7 @@ module Spree
         soft_decline: soft_decline,
         retry: !success
       )
-      ActiveMerchant::Billing::Response.new(success, message, 'response' => response.body)
+      ActiveMerchant::Billing::Response.new(success, message, body)
     end
 
     def capture(amount, response_code, gateway_options={})
@@ -117,14 +112,9 @@ module Spree
       response = AmazonPay::Charge.capture(capture_id, params)
 
       success = response.code.to_i == 200 || response.code.to_i == 201
-      message = 'Success'
-      soft_decline = false
-
-      unless success
-        body = JSON.parse(response.body, symbolize_names: true)
-        message = body[:message]
-        soft_decline = body[:reasonCode] == 'SoftDeclined'
-      end
+      body = JSON.parse(response.body, symbolize_names: true)
+      message = success ? 'Success' : body[:message][0...255]
+      soft_decline = success ? nil : body[:reasonCode] == 'SoftDeclined'
 
       # Saving information in last amazon transaction for error flow in amazon controller
       amazon_transaction.update!(
@@ -137,8 +127,8 @@ module Spree
       ActiveMerchant::Billing::Response.new(success, message)
     end
 
-    def purchase(amount, amazon_checkout, gateway_options = {})
-      capture(amount, amazon_checkout.capture_id, gateway_options)
+    def purchase(amount, amazon_transaction, gateway_options = {})
+      capture(amount, amazon_transaction.capture_id, gateway_options)
     end
 
     def credit(amount, response_code, _gateway_options = {})
@@ -162,18 +152,14 @@ module Spree
 
       success = response.code.to_i == 200 || response.code.to_i == 201
       body = JSON.parse(response.body, symbolize_names: true)
-      message = 'Success'
+      message = success ? 'Success' : body[:message][0...255]
 
-      unless success
-        message = body[:message]
-      end
-
-      ActiveMerchant::Billing::Response.new(success, message,
+      ActiveMerchant::Billing::Response.new(success, message, body,
                                             authorization: body[:refundId])
     end
 
-    def void(response_code, gateway_options = {})
-      cancel(response_code || extract_order_and_payment_number(gateway_options[:order_id]).second)
+    def void(response_code, _gateway_options = {})
+      cancel(response_code)
     end
 
     def cancel(response_code)
@@ -186,15 +172,12 @@ module Spree
           cancellationReason: 'Cancelled Order'
         }
 
-        response = AmazonPay::Charge.cancel(amazon_transaction.order_reference, params)
+        response = AmazonPay::Charge.cancel(amazon_transaction.order_reference,
+                                            params)
 
         success = response.code.to_i == 200 || response.code.to_i == 201
         body = JSON.parse(response.body, symbolize_names: true)
-        message = 'Success'
-
-        unless success
-          message = body[:message]
-        end
+        message = success ? 'Success' : body[:message][0...255]
 
         ActiveMerchant::Billing::Response.new(success, message)
       else
