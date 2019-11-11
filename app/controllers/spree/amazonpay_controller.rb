@@ -80,7 +80,14 @@ class Spree::AmazonpayController < Spree::StoreController
     }
 
     response = AmazonPay::CheckoutSession.update(amazon_checkout_session_id, params)
-    redirect_to response[:webCheckoutDetail][:amazonPayRedirectUrl]
+
+    web_checkout_detail = response[:webCheckoutDetail]
+
+    if web_checkout_detail
+      redirect_to web_checkout_detail[:amazonPayRedirectUrl]
+    else
+      redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
+    end
   end
 
   def complete
