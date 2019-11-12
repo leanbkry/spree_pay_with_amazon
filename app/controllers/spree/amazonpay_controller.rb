@@ -45,6 +45,10 @@ class Spree::AmazonpayController < Spree::StoreController
     amazon_user = SpreeAmazon::User.from_response(response.body)
     set_user_information(amazon_user.auth_hash)
 
+    if spree_current_user.nil?
+      current_order.update_attributes!(email: amazon_user.email)
+    end
+
     amazon_address = SpreeAmazon::Address.from_response(response.body)
     address_attributes = amazon_address.attributes
 
@@ -52,9 +56,7 @@ class Spree::AmazonpayController < Spree::StoreController
       address_attributes = address_attributes.merge(user: spree_current_user)
     end
 
-    current_order.update_attributes!(bill_address_attributes: address_attributes,
-                                     ship_address_attributes: address_attributes,
-                                     email: amazon_user.email)
+    update_current_order_address!(address_attributes)
 
     current_order.next!
 
@@ -193,6 +195,32 @@ class Spree::AmazonpayController < Spree::StoreController
   def check_current_order
     unless current_order
       redirect_to cart_path
+    end
+  end
+
+  def update_current_order_address!(address_attributes, spree_user_address = nil)
+    bill_address = current_order.bill_address
+    ship_address = current_order.ship_address
+
+    new_address = Spree::Address.new address_attributes
+    if spree_address_book_available?
+      user_address = spree_current_user.addresses.find do |address|
+        address.same_as?(new_address)
+      end
+
+      if user_address
+        current_order.update_column(:ship_address_id, user_address.id)
+      else
+        new_address.save!
+        current_order.update_column(:ship_address_id, new_address.id)
+      end
+    else
+      if ship_address.nil? || ship_address.empty?
+        new_address.save!
+        current_order.update_column(:ship_address_id, new_address.id)
+      else
+        ship_address.update_attributes(address_attributes)
+      end
     end
   end
 
