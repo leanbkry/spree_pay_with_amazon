@@ -15,7 +15,6 @@ module AmazonPay
   @@public_key_id = nil
   @@region = nil
   @@sandbox = 'true'
-  @@store_id = nil
   @@private_key = 'private.pem'
 
   def self.region=(region)
@@ -32,10 +31,6 @@ module AmazonPay
 
   def self.private_key=(private_key)
     @@private_key = private_key
-  end
-
-  def self.store_id=(store_id)
-    @@store_id = store_id
   end
 
   def self.request(method_type, url, body = nil)
