@@ -27,7 +27,9 @@ class Spree::AmazonpayController < Spree::StoreController
               { checkoutReviewReturnUrl: 'http://localhost:3000/amazonpay/confirm' },
                storeId: gateway.preferred_client_id }
 
-    render json: AmazonPay::CheckoutSession.create(params)
+    response = AmazonPay::CheckoutSession.create(params)
+
+    render json: response.body
   end
 
   def confirm
@@ -35,10 +37,15 @@ class Spree::AmazonpayController < Spree::StoreController
 
     response = AmazonPay::CheckoutSession.get(amazon_checkout_session_id)
 
-    amazon_user = SpreeAmazon::User.from_response(response)
+    unless response.success?
+      redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
+      return
+    end
+
+    amazon_user = SpreeAmazon::User.from_response(response.body)
     set_user_information(amazon_user.auth_hash)
 
-    amazon_address = SpreeAmazon::Address.from_response(response)
+    amazon_address = SpreeAmazon::Address.from_response(response.body)
     address_attributes = amazon_address.attributes
 
     if spree_address_book_available?
@@ -81,9 +88,9 @@ class Spree::AmazonpayController < Spree::StoreController
 
     response = AmazonPay::CheckoutSession.update(amazon_checkout_session_id, params)
 
-    web_checkout_detail = response[:webCheckoutDetail]
+    web_checkout_detail = response.body[:webCheckoutDetail]
 
-    if web_checkout_detail
+    if web_checkout_detail && response.success?
       redirect_to web_checkout_detail[:amazonPayRedirectUrl]
     else
       redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
@@ -93,7 +100,13 @@ class Spree::AmazonpayController < Spree::StoreController
   def complete
     response = AmazonPay::CheckoutSession.get(amazon_checkout_session_id)
 
-    status_detail = response[:statusDetail]
+    unless response.success?
+      redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
+      return
+    end
+
+    body = response.body
+    status_detail = body[:statusDetail]
 
     unless status_detail[:state] == 'Completed'
       redirect_to cart_path, notice: status_detail[:reasonDescription]
@@ -106,13 +119,13 @@ class Spree::AmazonpayController < Spree::StoreController
     payment = payments.create
     payment.payment_method = gateway
     payment.source ||= Spree::AmazonTransaction.create(
-      order_reference: response[:chargePermissionId],
+      order_reference: body[:chargePermissionId],
       order_id: @order.id,
-      capture_id: response[:chargeId],
+      capture_id: body[:chargeId],
       retry: false
     )
     payment.amount = @order.order_total_after_store_credit
-    payment.response_code = response[:chargeId]
+    payment.response_code = body[:chargeId]
     payment.save!
 
     @order.reload

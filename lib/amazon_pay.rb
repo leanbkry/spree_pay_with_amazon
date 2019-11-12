@@ -8,6 +8,7 @@ require 'amazon/charge_permission'
 require 'amazon/charge'
 require 'amazon/checkout_session'
 require 'amazon/refund'
+require 'amazon/response'
 
 module AmazonPay
   @@amazon_signature_algorithm = 'AMZN-PAY-RSASSA-PSS'.freeze
@@ -64,7 +65,7 @@ module AmazonPay
       http.request(request)
     end
 
-    response
+    AmazonPay::Response.new response
   end
 
   def self.signed_headers(http_request_method, request_uri, request_parameters, request_payload, other_presigned_headers = nil)

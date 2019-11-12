@@ -1,18 +1,15 @@
 module AmazonPay
   class CheckoutSession
     def self.create(params)
-      response = AmazonPay.request('post', 'checkoutSessions', params)
-      response.body
+      AmazonPay.request('post', 'checkoutSessions', params)
     end
 
     def self.get(checkout_session_id)
-      response = AmazonPay.request('get', "checkoutSessions/#{checkout_session_id}")
-      JSON.parse(response.body, symbolize_names: true)
+      AmazonPay.request('get', "checkoutSessions/#{checkout_session_id}")
     end
 
     def self.update(checkout_session_id, params)
-      response = AmazonPay.request('patch', "checkoutSessions/#{checkout_session_id}", params)
-      JSON.parse(response.body, symbolize_names: true)
+      AmazonPay.request('patch', "checkoutSessions/#{checkout_session_id}", params)
     end
   end
 end
