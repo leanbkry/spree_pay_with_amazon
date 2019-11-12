@@ -57,13 +57,10 @@ module Spree
 
       response = AmazonPay::ChargePermission.close(order_reference, params)
 
-      success = response.code.to_i == 200 || response.code.to_i == 201
-      body = JSON.parse(response.body, symbolize_names: true)
-
-      if success
+      if response.success?
         update_attributes(closed_at: Time.current)
       else
-        gateway_error(body)
+        gateway_error(response.body)
       end
     end
 

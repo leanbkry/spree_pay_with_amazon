@@ -83,7 +83,7 @@ module Spree
 
       success = response.success?
       message = response.message[0..255]
-      soft_decline = success ? nil : body[:reasonCode] == 'SoftDeclined'
+      soft_decline = success ? body[:reasonCode] == 'SoftDeclined' : nil
 
       # Saving information in last amazon transaction for error flow in amazon controller
       amazon_transaction.update!(
@@ -119,7 +119,7 @@ module Spree
 
       success = response.success?
       message = response.message[0..255]
-      soft_decline = success ? nil : body[:reasonCode] == 'SoftDeclined'
+      soft_decline = success ? body[:reasonCode] == 'SoftDeclined' : nil
 
       # Saving information in last amazon transaction for error flow in amazon controller
       amazon_transaction.update!(
