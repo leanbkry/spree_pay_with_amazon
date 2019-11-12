@@ -19,6 +19,7 @@ module Spree
     preference :region, :string, default: 'us'
     preference :site_domain, :string
     preference :public_key_id, :string
+    preference :use_ssl, :string
     preference :private_key_file_location, :string
 
     has_one :provider
@@ -27,6 +28,10 @@ module Spree
 
     def self.for_currency(currency)
       where(active: true).detect { |gateway| gateway.preferred_currency == currency }
+    end
+
+    def base_url(use_ssl)
+      "http#{use_ssl ? 's' : ''}://#{preferred_site_domain}/amazonpay/"
     end
 
     def widgets_url

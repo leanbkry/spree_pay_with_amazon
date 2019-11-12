@@ -24,7 +24,7 @@ class Spree::AmazonpayController < Spree::StoreController
     end
 
     params = { webCheckoutDetail:
-              { checkoutReviewReturnUrl: 'http://localhost:3000/amazonpay/confirm' },
+              { checkoutReviewReturnUrl: gateway.base_url(request.ssl?) + 'confirm' },
                storeId: gateway.preferred_client_id }
 
     response = AmazonPay::CheckoutSession.create(params)
@@ -70,7 +70,7 @@ class Spree::AmazonpayController < Spree::StoreController
 
     params = {
       webCheckoutDetail: {
-        checkoutResultReturnUrl: 'http://localhost:3000/amazonpay/complete'
+        checkoutResultReturnUrl: gateway.base_url(request.ssl?) + 'complete'
       },
       paymentDetail: {
         paymentIntent: 'Authorize',
@@ -199,7 +199,6 @@ class Spree::AmazonpayController < Spree::StoreController
   end
 
   def update_current_order_address!(address_attributes, spree_user_address = nil)
-    bill_address = current_order.bill_address
     ship_address = current_order.ship_address
 
     new_address = Spree::Address.new address_attributes
