@@ -88,14 +88,13 @@ module Spree
 
       success = response.success?
       message = response.message[0..255]
-      soft_decline = success ? body[:reasonCode] == 'SoftDeclined' : nil
 
       # Saving information in last amazon transaction for error flow in amazon controller
       amazon_transaction.update!(
         success: success,
         message: message,
         capture_id: response.body[:chargeId],
-        soft_decline: soft_decline,
+        soft_decline: response.soft_decline?,
         retry: !success
       )
 
@@ -124,13 +123,12 @@ module Spree
 
       success = response.success?
       message = response.message[0..255]
-      soft_decline = success ? body[:reasonCode] == 'SoftDeclined' : nil
 
       # Saving information in last amazon transaction for error flow in amazon controller
       amazon_transaction.update!(
         success: success,
         message: message,
-        soft_decline: soft_decline,
+        soft_decline: response.soft_decline?,
         retry: !success
       )
 
@@ -160,10 +158,12 @@ module Spree
 
       response = AmazonPay::Refund.create(params)
 
+      authorization = response.success? ? response.body[:refundId] : nil
+
       ActiveMerchant::Billing::Response.new(response.success?,
                                             response.message[0...255],
                                             response.body,
-                                            authorization: response.body[:refundId])
+                                            authorization: authorization)
     end
 
     def void(response_code, _gateway_options = {})

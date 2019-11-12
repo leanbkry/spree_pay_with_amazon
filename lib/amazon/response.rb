@@ -17,7 +17,13 @@ module AmazonPay
     end
 
     def reason_code
+      return nil if success?
       body[:reasonCode]
+    end
+
+    def soft_decline?
+      return nil if success?
+      reason_code == 'SoftDeclined'
     end
 
     def message
