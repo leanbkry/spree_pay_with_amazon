@@ -58,6 +58,7 @@ class Spree::AmazonpayController < Spree::StoreController
 
     update_current_order_address!(address_attributes)
 
+    current_order.unprocessed_payments.map(&:invalidate!)
     current_order.next!
 
     if current_order.shipments.empty?
@@ -90,9 +91,8 @@ class Spree::AmazonpayController < Spree::StoreController
 
     response = AmazonPay::CheckoutSession.update(amazon_checkout_session_id, params)
 
-    web_checkout_detail = response.body[:webCheckoutDetail]
-
-    if web_checkout_detail && response.success?
+    if response.success?
+      web_checkout_detail = response.body[:webCheckoutDetail]
       redirect_to web_checkout_detail[:amazonPayRedirectUrl]
     else
       redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
