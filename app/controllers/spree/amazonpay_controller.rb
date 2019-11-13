@@ -56,13 +56,17 @@ class Spree::AmazonpayController < Spree::StoreController
       address_attributes = address_attributes.merge(user: spree_current_user)
     end
 
+    if address_restrictions(amazon_address)
+      redirect_to cart_path, notice: Spree.t(:cannot_ship_to_address) && return
+    end
+
     update_current_order_address!(address_attributes)
 
     current_order.unprocessed_payments.map(&:invalidate!)
     current_order.next!
 
     if current_order.shipments.empty?
-      redirect_to cart_path, notice: 'Cannot ship to this address'
+      redirect_to cart_path, notice: Spree.t(:cannot_ship_to_address)
     end
   end
 
@@ -163,6 +167,11 @@ class Spree::AmazonpayController < Spree::StoreController
 
   def amazon_checkout_session_id
     params[:amazonCheckoutSessionId]
+  end
+
+  # Override this function if you need to restrict shipping locations
+  def address_restrictions(amazon_address)
+    amazon_address.nil?
   end
 
   def set_user_information(auth_hash)

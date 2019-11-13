@@ -19,7 +19,6 @@ module Spree
     preference :region, :string, default: 'us'
     preference :site_domain, :string
     preference :public_key_id, :string
-    preference :use_ssl, :string
     preference :private_key_file_location, :string
 
     has_one :provider
