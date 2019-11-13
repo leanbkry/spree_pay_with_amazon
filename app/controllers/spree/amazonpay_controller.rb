@@ -33,7 +33,10 @@ class Spree::AmazonpayController < Spree::StoreController
   end
 
   def confirm
-    redirect_to cart_path && return unless current_order.address?
+    unless current_order.address?
+      redirect_to cart_path
+      return
+    end
 
     response = AmazonPay::CheckoutSession.get(amazon_checkout_session_id)
 
@@ -57,7 +60,8 @@ class Spree::AmazonpayController < Spree::StoreController
     end
 
     if address_restrictions(amazon_address)
-      redirect_to cart_path, notice: Spree.t(:cannot_ship_to_address) && return
+      redirect_to cart_path, notice: Spree.t(:cannot_ship_to_address)
+      return
     end
 
     update_current_order_address!(address_attributes)
