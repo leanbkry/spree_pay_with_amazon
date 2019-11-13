@@ -11,7 +11,7 @@
 <fieldset id="order_details" data-hook>
   <div class="clear"></div>
   <legend align="center"><%= Spree.t(:confirm) %></legend>
-  <%= render :partial => 'spree/shared/order_details', :locals => { :order => current_order } %>
+  <%= render :partial => 'spree/amazonpay/order_details', :locals => { :order => current_order } %>
 </fieldset>
 
 <%= form_tag spree.payment_amazonpay_path, :class => 'edit_order' do %>
@@ -21,3 +21,14 @@
     <script>Spree.disableSaveOnClick();</script>
   </div>
 <% end %>
+
+<script type="text/javascript" charset="utf-8">
+  amazon.Pay.bindChangeAction("#addressChange", {
+    amazonCheckoutSessionId: "<%= params[:amazonCheckoutSessionId] %>",
+    changeAction: 'changeAddress'
+  });
+  amazon.Pay.bindChangeAction("#paymentChange", {
+    amazonCheckoutSessionId: "<%= params[:amazonCheckoutSessionId] %>",
+    changeAction: 'changePayment'
+  });
+</script>

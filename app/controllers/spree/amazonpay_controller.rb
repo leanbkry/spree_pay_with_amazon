@@ -34,8 +34,8 @@ class Spree::AmazonpayController < Spree::StoreController
 
   def confirm
     unless current_order.address?
-      redirect_to cart_path
-      return
+      current_order.state = 'address'
+      current_order.save!
     end
 
     response = AmazonPay::CheckoutSession.get(amazon_checkout_session_id)
