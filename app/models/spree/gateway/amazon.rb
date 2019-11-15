@@ -173,14 +173,9 @@ module Spree
       payment = Spree::Payment.find_by!(response_code: response_code)
       amazon_transaction = payment.source
 
-      load_amazon_pay
-
       if amazon_transaction.capture_id.nil?
-
-        params = {
-          cancellationReason: 'Cancelled Order'
-        }
-
+        load_amazon_pay
+        params = { cancellationReason: 'Cancelled Order' }
         response = AmazonPay::Charge.cancel(amazon_transaction.order_reference,
                                             params)
 

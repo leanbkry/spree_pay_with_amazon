@@ -99,8 +99,6 @@ module AmazonPay
     header_array['x-amz-pay-date'] = time_stamp
     header_array['x-amz-pay-region'] = @@region
     header_array['authorization'] = "#{@@amazon_signature_algorithm} PublicKeyId=#{@@public_key_id}, #{signed_headers}"
-    puts("\nAUTHORIZATION HEADER:\n" + header_array['authorization'])
-
     header_array.sort_by { |key, _value| key }.to_h
   end
 
@@ -114,9 +112,7 @@ module AmazonPay
     canonical_header = header_string(pre_signed_headers)
     signed_headers = canonical_headers_names(pre_signed_headers)
     canonical_request = "#{http_request_method.upcase}\n#{canonical_uri}\n#{canonical_query_string}\n#{canonical_header}\n#{signed_headers}\n#{hashed_payload}"
-    puts("\nCANONICAL REQUEST:\n" + canonical_request)
     hashed_canonical_request = "#{@@amazon_signature_algorithm}\n#{hex_and_hash(canonical_request)}"
-    puts("\nSTRING TO SIGN:\n" + hashed_canonical_request)
     Base64.strict_encode64(rsa.sign_pss(@@hash_algorithm, hashed_canonical_request, salt_length: 20, mgf1_hash: @@hash_algorithm))
   end
 
