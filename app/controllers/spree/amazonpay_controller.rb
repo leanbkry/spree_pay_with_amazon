@@ -71,6 +71,8 @@ class Spree::AmazonpayController < Spree::StoreController
 
     if current_order.shipments.empty?
       redirect_to cart_path, notice: Spree.t(:cannot_ship_to_address)
+    else
+      current_order.next!
     end
   end
 
