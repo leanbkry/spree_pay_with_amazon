@@ -8,8 +8,7 @@
 #
 ##
 class Spree::AmazonpayController < Spree::CheckoutController
-  helper 'spree/orders'
-  before_action :gateway, only: [:confirm, :create, :payment, :complete]
+  before_action :gateway
   skip_before_action :verify_authenticity_token, only: %i[create complete]
 
   respond_to :json
@@ -67,6 +66,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
     update_order_address!(address_attributes)
 
     @order.unprocessed_payments.map(&:invalidate!)
+    @order.temporary_address = true
 
     if !@order.next || @order.shipments.empty?
       redirect_to cart_path, notice: Spree.t(:cannot_ship_to_address)
@@ -219,7 +219,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
     session[:guest_token] = nil
   end
 
-  def update_order_address!(address_attributes, spree_user_address = nil)
+  def update_order_address!(address_attributes)
     ship_address = @order.ship_address
 
     new_address = Spree::Address.new address_attributes
@@ -234,13 +234,11 @@ class Spree::AmazonpayController < Spree::CheckoutController
         new_address.save!
         @order.update_column(:ship_address_id, new_address.id)
       end
+    elsif ship_address.nil? || ship_address.empty?
+      new_address.save!
+      @order.update_column(:ship_address_id, new_address.id)
     else
-      if ship_address.nil? || ship_address.empty?
-        new_address.save!
-        @order.update_column(:ship_address_id, new_address.id)
-      else
-        ship_address.update_attributes(address_attributes)
-      end
+      ship_address.update_attributes(address_attributes)
     end
   end
 
