@@ -103,8 +103,7 @@ module Spree
     def capture(amount, response_code, gateway_options={})
       return credit(amount.abs, response_code, gateway_options) if amount < 0
 
-      payment = Spree::Payment.find_by!(response_code: response_code)
-      amazon_transaction = payment.source
+      _payment, amazon_transaction = find_payment_and_transaction(response_code)
 
       load_amazon_pay
 
@@ -139,8 +138,7 @@ module Spree
     end
 
     def credit(amount, response_code, _gateway_options = {})
-      payment = Spree::Payment.find_by!(response_code: response_code)
-      amazon_transaction = payment.source
+      payment, amazon_transaction = find_payment_and_transaction(response_code)
 
       load_amazon_pay
 
@@ -170,8 +168,7 @@ module Spree
     end
 
     def cancel(response_code)
-      payment = Spree::Payment.find_by!(response_code: response_code)
-      amazon_transaction = payment.source
+      payment, amazon_transaction = find_payment_and_transaction(response_code)
 
       if amazon_transaction.capture_id.nil?
         load_amazon_pay
@@ -194,6 +191,13 @@ module Spree
     end
 
     private
+
+    def find_payment_and_transaction(response_code)
+      payment = Spree::Payment.find_by(response_code: response_code)
+      (raise Spree::Core::GatewayError, 'Payment not found') unless payment
+      amazon_transaction = payment.source
+      [payment, amazon_transaction]
+    end
 
     def update_for_backwards_compatibility(capture_id)
       capture_id[20] == 'A' ? capture_id[20, 1] = 'C' : capture_id

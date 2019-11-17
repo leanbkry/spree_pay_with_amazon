@@ -7,21 +7,15 @@
 # @license     http://opensource.org/licenses/Apache-2.0  Apache License, Version 2.0
 #
 ##
-class Spree::AmazonpayController < Spree::StoreController
+class Spree::AmazonpayController < Spree::CheckoutController
   helper 'spree/orders'
-  before_action :check_current_order
   before_action :gateway, only: [:confirm, :create, :payment, :complete]
   skip_before_action :verify_authenticity_token, only: %i[create complete]
 
   respond_to :json
 
   def create
-    if current_order.cart?
-      current_order.next!
-    else
-      current_order.state = 'address'
-      current_order.save!
-    end
+    update_order_state('cart')
 
     params = { webCheckoutDetail:
               { checkoutReviewReturnUrl: gateway.base_url(request.ssl?) + 'confirm' },
@@ -33,10 +27,7 @@ class Spree::AmazonpayController < Spree::StoreController
   end
 
   def confirm
-    unless current_order.address?
-      current_order.state = 'address'
-      current_order.save!
-    end
+    update_order_state('address')
 
     response = AmazonPay::CheckoutSession.get(amazon_checkout_session_id)
 
@@ -45,14 +36,23 @@ class Spree::AmazonpayController < Spree::StoreController
       return
     end
 
-    amazon_user = SpreeAmazon::User.from_response(response.body)
+    body = response.body
+    status_detail = body[:statusDetail]
+
+    # if the order was already completed then they shouldn't be at this step
+    if status_detail[:state] == 'Completed'
+      redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
+      return
+    end
+
+    amazon_user = SpreeAmazon::User.from_response(body)
     set_user_information(amazon_user.auth_hash)
 
     if spree_current_user.nil?
-      current_order.update_attributes!(email: amazon_user.email)
+      @order.update_attributes!(email: amazon_user.email)
     end
 
-    amazon_address = SpreeAmazon::Address.from_response(response.body)
+    amazon_address = SpreeAmazon::Address.from_response(body)
     address_attributes = amazon_address.attributes
 
     if spree_address_book_available?
@@ -64,20 +64,25 @@ class Spree::AmazonpayController < Spree::StoreController
       return
     end
 
-    update_current_order_address!(address_attributes)
+    update_order_address!(address_attributes)
 
-    current_order.unprocessed_payments.map(&:invalidate!)
-    current_order.next!
+    @order.unprocessed_payments.map(&:invalidate!)
 
-    if current_order.shipments.empty?
+    if !@order.next || @order.shipments.empty?
       redirect_to cart_path, notice: Spree.t(:cannot_ship_to_address)
     else
-      current_order.next!
+      @order.next
     end
   end
 
   def payment
-    authorize!(:edit, current_order, cookies.signed[:guest_token])
+    update_order_state('payment')
+
+    unless @order.next
+      flash[:error] = @order.errors.full_messages.join("\n")
+      redirect_to cart_path
+      return
+    end
 
     params = {
       webCheckoutDetail: {
@@ -87,12 +92,12 @@ class Spree::AmazonpayController < Spree::StoreController
         paymentIntent: 'Authorize',
         canHandlePendingAuthorization: false,
         chargeAmount: {
-          amount: current_order.order_total_after_store_credit,
+          amount: @order.order_total_after_store_credit,
           currencyCode: current_currency
         }
       },
       merchantMetadata: {
-        merchantReferenceId: current_order.number,
+        merchantReferenceId: @order.number,
         merchantStoreName: current_store.name,
         noteToBuyer: '',
         customInformation: ''
@@ -120,12 +125,12 @@ class Spree::AmazonpayController < Spree::StoreController
     body = response.body
     status_detail = body[:statusDetail]
 
+    # Make sure the order status from Amazon is completed otherwise
+    # Redirect to cart for the consumer to start over
     unless status_detail[:state] == 'Completed'
       redirect_to cart_path, notice: status_detail[:reasonDescription]
       return
     end
-
-    @order = current_order
 
     payments = @order.payments
     payment = payments.create
@@ -148,7 +153,7 @@ class Spree::AmazonpayController < Spree::StoreController
       @current_order = nil
       flash.notice = Spree.t(:order_processed_successfully)
       flash[:order_completed] = true
-      redirect_to spree.order_path(@order)
+      redirect_to completion_route
     else
       amazon_transaction = @order.amazon_transaction
       amazon_transaction.reload
@@ -164,12 +169,19 @@ class Spree::AmazonpayController < Spree::StoreController
   end
 
   def gateway
-    @gateway ||= Spree::Gateway::Amazon.for_currency(current_order.currency)
+    @gateway ||= Spree::Gateway::Amazon.for_currency(@order.currency)
     @gateway.load_amazon_pay
     @gateway
   end
 
   private
+
+  def update_order_state(state)
+    if @order.state != state
+      @order.state = state
+      @order.save!
+    end
+  end
 
   def amazon_checkout_session_id
     params[:amazonCheckoutSessionId]
@@ -203,18 +215,12 @@ class Spree::AmazonpayController < Spree::StoreController
     # make sure to merge the current order with signed in user previous cart
     set_current_order
 
-    current_order.associate_user!(user)
+    @order.associate_user!(user)
     session[:guest_token] = nil
   end
 
-  def check_current_order
-    unless current_order
-      redirect_to cart_path
-    end
-  end
-
-  def update_current_order_address!(address_attributes, spree_user_address = nil)
-    ship_address = current_order.ship_address
+  def update_order_address!(address_attributes, spree_user_address = nil)
+    ship_address = @order.ship_address
 
     new_address = Spree::Address.new address_attributes
     if spree_address_book_available?
@@ -223,19 +229,29 @@ class Spree::AmazonpayController < Spree::StoreController
       end
 
       if user_address
-        current_order.update_column(:ship_address_id, user_address.id)
+        @order.update_column(:ship_address_id, user_address.id)
       else
         new_address.save!
-        current_order.update_column(:ship_address_id, new_address.id)
+        @order.update_column(:ship_address_id, new_address.id)
       end
     else
       if ship_address.nil? || ship_address.empty?
         new_address.save!
-        current_order.update_column(:ship_address_id, new_address.id)
+        @order.update_column(:ship_address_id, new_address.id)
       else
         ship_address.update_attributes(address_attributes)
       end
     end
+  end
+
+  def rescue_from_spree_gateway_error(exception)
+    flash.now[:error] = Spree.t(:spree_gateway_error_flash_for_checkout)
+    @order.errors.add(:base, exception.message)
+    redirect_to cart_path
+  end
+
+  def skip_state_validation?
+    true
   end
 
   def spree_address_book_available?
