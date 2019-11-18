@@ -257,6 +257,11 @@ class Spree::AmazonpayController < Spree::CheckoutController
     true
   end
 
+  # We are logging the user in so there is no need to check registration
+  def check_registration
+    true
+  end
+
   def spree_address_book_available?
     Gem::Specification.find_all_by_name('spree_address_book').any?
   end
