@@ -221,6 +221,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
 
   def update_order_address!(address_attributes)
     ship_address = @order.ship_address
+    bill_address = @order.bill_address
 
     new_address = Spree::Address.new address_attributes
     if spree_address_book_available?
@@ -230,15 +231,19 @@ class Spree::AmazonpayController < Spree::CheckoutController
 
       if user_address
         @order.update_column(:ship_address_id, user_address.id)
+        @order.update_column(:bill_address_id, user_address.id)
       else
         new_address.save!
         @order.update_column(:ship_address_id, new_address.id)
+        @order.update_column(:bill_address_id, new_address.id)
       end
     elsif ship_address.nil? || ship_address.empty?
       new_address.save!
       @order.update_column(:ship_address_id, new_address.id)
+      @order.update_column(:bill_address_id, new_address.id)
     else
       ship_address.update_attributes(address_attributes)
+      bill_address.update_attributes(address_attributes)
     end
   end
 
