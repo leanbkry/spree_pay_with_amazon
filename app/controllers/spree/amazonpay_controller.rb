@@ -9,7 +9,10 @@
 ##
 class Spree::AmazonpayController < Spree::CheckoutController
   before_action :gateway
+
   skip_before_action :verify_authenticity_token, only: %i[create complete]
+
+  rescue_from ActiveRecord::RecordInvalid, with: :rescue_from_active_record_error
 
   respond_to :json
 
@@ -224,7 +227,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
     bill_address = @order.bill_address
 
     new_address = Spree::Address.new address_attributes
-    if spree_address_book_available?
+    if spree_current_user.respond_to?(:addresses)
       user_address = spree_current_user.addresses.find do |address|
         address.same_as?(new_address)
       end
@@ -250,7 +253,13 @@ class Spree::AmazonpayController < Spree::CheckoutController
   def rescue_from_spree_gateway_error(exception)
     flash.now[:error] = Spree.t(:spree_gateway_error_flash_for_checkout)
     @order.errors.add(:base, exception.message)
-    redirect_to cart_path
+    render :confirm
+  end
+
+  def rescue_from_active_record_error(exception)
+    flash.now[:error] = Spree.t(:spree_active_record_error_flash_for_checkout)
+    @order.errors.add(:base, exception.message)
+    render :confirm
   end
 
   def skip_state_validation?
