@@ -162,6 +162,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
                     notice: amazon_transaction.message
       else
         @order.amazon_transactions.destroy_all
+        @order.temporary_address = true
         @order.save!
         redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
       end
