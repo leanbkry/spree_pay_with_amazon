@@ -27,8 +27,6 @@ class Spree::AmazonpayController < Spree::CheckoutController
   end
 
   def confirm
-    update_order_state('cart')
-
     response = AmazonPay::CheckoutSession.get(amazon_checkout_session_id)
 
     unless response.success?
