@@ -17,8 +17,6 @@ class Spree::AmazonpayController < Spree::CheckoutController
   respond_to :json
 
   def create
-    update_order_state('cart')
-
     params = { webCheckoutDetail:
               { checkoutReviewReturnUrl: gateway.base_url(request.ssl?) + 'confirm' },
                storeId: gateway.preferred_client_id }
@@ -29,7 +27,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
   end
 
   def confirm
-    update_order_state('address')
+    update_order_state('cart')
 
     response = AmazonPay::CheckoutSession.get(amazon_checkout_session_id)
 
@@ -67,6 +65,8 @@ class Spree::AmazonpayController < Spree::CheckoutController
     end
 
     update_order_address!(address_attributes)
+
+    update_order_state('address')
 
     @order.unprocessed_payments.map(&:invalidate!)
     @order.temporary_address = true
@@ -158,6 +158,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
       flash[:order_completed] = true
       redirect_to completion_route
     else
+      update_order_state('cart')
       amazon_transaction = @order.amazon_transaction
       amazon_transaction.reload
       if amazon_transaction.soft_decline
