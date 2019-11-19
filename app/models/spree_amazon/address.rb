@@ -16,7 +16,7 @@ module SpreeAmazon
           state: convert_state(address_params[:stateOrRegion],
                                convert_country(address_params[:countryCode])),
           country: convert_country(address_params[:countryCode]),
-          phone: address_params[:phoneNumber] || '0000000000'
+          phone: convert_phone(address_params[:phoneNumber]) || '0000000000'
         }
       end
 
@@ -45,6 +45,11 @@ module SpreeAmazon
 
       def convert_state(state_name, country)
         Spree::State.find_by(abbr: state_name, country: country)
+      end
+
+      def convert_phone(phone_number)
+        return nil if phone_number.blank?
+        phone_number
       end
     end
 
