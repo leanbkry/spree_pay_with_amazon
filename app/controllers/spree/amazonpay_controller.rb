@@ -63,23 +63,21 @@ class Spree::AmazonpayController < Spree::CheckoutController
     end
 
     update_order_address!(address_attributes)
-
     update_order_state('address')
 
     @order.unprocessed_payments.map(&:invalidate!)
-    @order.temporary_address = true
 
-    if !@order.next || @order.shipments.empty?
+    if !order_next || @order.shipments.empty?
       redirect_to cart_path, notice: Spree.t(:cannot_ship_to_address)
     else
-      @order.next
+      order_next
     end
   end
 
   def payment
     update_order_state('payment')
 
-    unless @order.next
+    unless order_next
       flash[:error] = @order.errors.full_messages.join("\n")
       redirect_to cart_path
       return
@@ -148,7 +146,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
 
     @order.reload
 
-    while @order.next; end
+    while order_next; end
 
     if @order.complete?
       @current_order = nil
@@ -180,6 +178,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
 
   def update_order_state(state)
     if @order.state != state
+      @order.temporary_address = true
       @order.state = state
       @order.save!
     end
@@ -268,6 +267,11 @@ class Spree::AmazonpayController < Spree::CheckoutController
   # We are logging the user in so there is no need to check registration
   def check_registration
     true
+  end
+
+  def order_next
+    @order.temporary_address = true
+    @order.next
   end
 
   def spree_address_book_available?
