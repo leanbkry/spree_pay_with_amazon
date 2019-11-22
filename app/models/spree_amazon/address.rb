@@ -44,7 +44,8 @@ module SpreeAmazon
       end
 
       def convert_state(state_name, country)
-        Spree::State.find_by(abbr: state_name, country: country)
+        Spree::State.find_by(abbr: state_name, country: country) ||
+          Spree::State.find_by(name: state_name, country: country)
       end
 
       def convert_phone(phone_number)
