@@ -26,6 +26,11 @@ module AmazonPay
       reason_code == 'SoftDeclined'
     end
 
+    def find_constraint(constraint)
+      return nil unless body[:constraints]
+      body[:constraints].find { |c| c[:constraintId] == constraint }
+    end
+
     def message
       return 'Success' if success?
       body[:message]

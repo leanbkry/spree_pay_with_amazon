@@ -36,9 +36,10 @@ class Spree::AmazonpayController < Spree::CheckoutController
 
     body = response.body
     status_detail = body[:statusDetail]
+    no_buyer = response.find_constraint('BuyerNotAssociated')
 
     # if the order was already completed then they shouldn't be at this step
-    if status_detail[:state] == 'Completed'
+    if status_detail[:state] == 'Completed' || no_buyer
       redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
       return
     end
@@ -157,15 +158,12 @@ class Spree::AmazonpayController < Spree::CheckoutController
       update_order_state('cart')
       amazon_transaction = @order.amazon_transaction
       amazon_transaction.reload
-      if amazon_transaction.soft_decline
-        redirect_to confirm_amazonpay_path(amazonCheckoutSessionId: amazon_checkout_session_id),
-                    notice: amazon_transaction.message
-      else
+      unless amazon_transaction.soft_decline
         @order.amazon_transactions.destroy_all
         @order.temporary_address = true
         @order.save!
-        redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
       end
+      redirect_to cart_path, notice: Spree.t(:order_processed_unsuccessfully)
     end
   end
 
