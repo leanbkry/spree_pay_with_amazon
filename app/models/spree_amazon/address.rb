@@ -44,11 +44,14 @@ module SpreeAmazon
       end
 
       def convert_state(state_name, country)
-        Spree::State.find_by(abbr: state_name, country: country)
+        Spree::State.find_by(abbr: state_name, country: country) ||
+          Spree::State.find_by(name: state_name, country: country)
       end
 
       def convert_phone(phone_number)
-        return nil if phone_number.blank?
+        return nil if phone_number.blank? ||
+                      phone_number.length < 10 ||
+                      phone_number.length > 15
         phone_number
       end
     end
