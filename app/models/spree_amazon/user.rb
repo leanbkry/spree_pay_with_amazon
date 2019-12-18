@@ -24,6 +24,10 @@ module SpreeAmazon
       end
     end
 
+    def valid?
+      uid.present? && email.present?
+    end
+
     def auth_hash
       {
         'provider' => 'amazon',
