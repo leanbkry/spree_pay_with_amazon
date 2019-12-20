@@ -45,6 +45,12 @@ class Spree::AmazonpayController < Spree::CheckoutController
     end
 
     amazon_user = SpreeAmazon::User.from_response(body)
+
+    unless amazon_user.valid?
+      redirect_to cart_path, notice: Spree.t(:uid_not_set)
+      return
+    end
+
     set_user_information(amazon_user.auth_hash)
 
     if spree_current_user.nil?
