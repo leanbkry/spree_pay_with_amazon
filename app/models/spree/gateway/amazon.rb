@@ -29,10 +29,6 @@ module Spree
       where(active: true).detect { |gateway| gateway.preferred_currency == currency }
     end
 
-    def base_url(use_ssl)
-      "http#{use_ssl ? 's' : ''}://#{preferred_site_domain}/amazonpay/"
-    end
-
     def widgets_url
       {
         'us' => 'https://static-na.payments-amazon.com/checkout.js',

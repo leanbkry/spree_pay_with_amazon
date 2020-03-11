@@ -18,7 +18,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
 
   def create
     params = { webCheckoutDetail:
-              { checkoutReviewReturnUrl: gateway.base_url(request.ssl?) + 'confirm' },
+              { checkoutReviewReturnUrl: confirm_amazonpay_url },
                storeId: gateway.preferred_client_id }
 
     response = AmazonPay::CheckoutSession.create(params)
@@ -92,7 +92,7 @@ class Spree::AmazonpayController < Spree::CheckoutController
 
     params = {
       webCheckoutDetail: {
-        checkoutResultReturnUrl: gateway.base_url(request.ssl?) + 'complete'
+        checkoutResultReturnUrl: complete_amazonpay_url
       },
       paymentDetail: {
         paymentIntent: 'Authorize',
