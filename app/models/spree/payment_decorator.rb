@@ -7,6 +7,8 @@
 # @license     http://opensource.org/licenses/Apache-2.0  Apache License, Version 2.0
 #
 ##
-Spree::Payment.class_eval do
+module Spree::PaymentDecorator
   scope :amazon, -> { where(source_type: 'Spree::AmazonTransaction') }
 end
+
+::Spree::Payment.prepend(Spree::PaymentDecorator)
