@@ -8,6 +8,7 @@
 #
 ##
 module Spree::OrderDecorator
+
    def self.prepended(base)
     base.has_many :amazon_transactions
 
