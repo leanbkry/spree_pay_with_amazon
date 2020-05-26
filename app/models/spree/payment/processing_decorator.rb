@@ -1,5 +1,5 @@
 module Spree::Payment::ProcessingDecorator
-  def self.close!
+  def close!
     return true unless source.respond_to?(:close!)
     source.close!(self)
   end

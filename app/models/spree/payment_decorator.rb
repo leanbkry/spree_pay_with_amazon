@@ -8,9 +8,11 @@
 #
 ##
 module Spree::PaymentDecorator
+
   def self.prepended(base)
     base.scope :amazon, -> { where(source_type: 'Spree::AmazonTransaction') }
   end
+
 end
 
 ::Spree::Payment.prepend(Spree::PaymentDecorator)
