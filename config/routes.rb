@@ -19,6 +19,22 @@ Spree::Core::Engine.routes.draw do
     end
   end
 
+  namespace :api, defaults: { format: 'json' } do
+    namespace :v2 do
+      namespace :storefront do
+        resource :amazon_order, only: [], controller: 'amazon' do
+          member do
+            post 'payment'
+            post 'address'
+            post 'confirm'
+            post 'complete'
+          end
+        end
+      end
+    end
+  end
+
+
   post 'amazon_callback', to: 'amazon_callback#new'
   get 'amazon_callback', to: 'amazon_callback#new'
 end
