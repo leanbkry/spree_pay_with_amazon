@@ -8,10 +8,12 @@
 #
 ##
 module Spree::OrderDecorator
-  has_many :amazon_transactions
+   def self.prepended(base)
+    base.has_many :amazon_transactions
 
-  alias_method :spree_confirmation_required?, :confirmation_required?
-  alias_method :spree_assign_default_credit_card, :assign_default_credit_card
+    base.alias_method :spree_confirmation_required?, :confirmation_required?
+    base.alias_method :spree_assign_default_credit_card, :assign_default_credit_card
+  end
 
   def self.amazon_transaction
     amazon_transactions.last
