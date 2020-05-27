@@ -66,7 +66,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
       update_payment_amount!
       complete
     else
-      redirect_to :back
+      head :error
     end
   end
 
