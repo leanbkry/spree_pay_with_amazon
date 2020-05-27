@@ -31,7 +31,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
 
     payment.save!
 
-    render json: {}
+    render_serialized_payload { serialized_current_order }
   end
 
   # method to save / store amazon pay address
@@ -51,10 +51,9 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
       update_spree_current_order_address!(address, spree_current_user.try(:ship_address))
 
       spree_current_order.save!
-      render_serialized_payload { serialized_current_order }
     else
-      head :ok
     end
+    render_serialized_payload { serialized_current_order }
   end
 
 
@@ -66,6 +65,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
       update_payment_amount!
       complete
     else
+
       head :error
     end
   end
@@ -84,6 +84,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
     complete_amazon_order!
 
     result = complete_service.call(order: spree_current_order)
+    
     render_order(result)
 
     # TODO handle declined amazon payments
