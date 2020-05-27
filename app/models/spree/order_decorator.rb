@@ -12,8 +12,6 @@ module Spree::OrderDecorator
    def self.prepended(base)
     base.has_many :amazon_transactions
 
-    base.alias_method :spree_confirmation_required?, :confirmation_required?
-    base.alias_method :spree_assign_default_credit_card, :assign_default_credit_card
   end
 
   def amazon_transaction
@@ -25,12 +23,11 @@ module Spree::OrderDecorator
   end
 
   def confirmation_required?
-    spree_confirmation_required? || payments.valid.map(&:payment_method).compact.any? { |pm| pm.is_a? Spree::Gateway::Amazon }
+    Spree::Config[:always_include_confirm_step] || payments.valid.map(&:payment_method).compact.any? { |pm| pm.is_a? Spree::Gateway::Amazon }
   end
 
   def assign_default_credit_card
     return if payments.valid.amazon.count > 0
-    spree_assign_default_credit_card
   end
 end
 
