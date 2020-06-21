@@ -231,7 +231,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
         address_params[:address1] = (amazon_address.address1 || spree_user_address.try(:address1)).to_s + ' ' + (amazon_address.address2 || spree_user_address.try(:address2)).to_s
       end
     else
-      address_params[:address1] = amazon_address.address1 || spree_user_address.try(:address1)
+      address_params[:address1] = amazon_address.address2 || spree_user_address.try(:address2)
     end
 
     if spree_address_book_available?
