@@ -226,7 +226,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
       # If address 1 contains a number use it normal, if not set address 1 and address 2
       if !amazon_address.address1[/\d/].nil?
         address_params[:address1] = amazon_address.address1 || spree_user_address.try(:address1)
-        address_params[:address2] = amazon_address.address2 || spree_user_address.try(:address2)
+        address_params[:company] = amazon_address.address2 || spree_user_address.try(:company)
       else
         address_params[:address1] = (amazon_address.address1 || spree_user_address.try(:address1)).to_s + ' ' + (amazon_address.address2 || spree_user_address.try(:address2)).to_s
       end
