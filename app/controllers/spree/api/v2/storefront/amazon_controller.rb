@@ -53,6 +53,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
       spree_current_order.save!
     else
     end
+    spree_current_order.reload
     render_serialized_payload { serialized_current_order }
   end
 
