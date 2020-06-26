@@ -48,6 +48,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
         auth_hash = SpreeAmazon::User.find(gateway: gateway, access_token: access_token)
         spree_current_order.email = spree_current_order.email || spree_current_user.try(:email) || auth_hash['info']['email'] || "pending@amazon.com"
       end
+      spree_current_order.ensure_updated_shipments # Ensure to update the shipments if the address changed
       update_spree_current_order_address!(address, spree_current_user.try(:ship_address))
 
       spree_current_order.save!
