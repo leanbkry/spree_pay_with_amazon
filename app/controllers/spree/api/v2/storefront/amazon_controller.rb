@@ -36,6 +36,19 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
 
   # method to save / store amazon pay address
   def address
+    # If no amazon order reference is set, create a payment first.
+    unless spree_current_order.amazon_order_reference_id
+      payment = amazon_payment || spree_current_order.payments.create
+      payment.payment_method = gateway
+      payment.source ||= Spree::AmazonTransaction.create(
+        order_reference: params[:order_reference],
+        order_id: spree_current_order.id,
+        retry: spree_current_order.amazon_transactions.unsuccessful.any?
+      )
+      payment.save!
+      spree_current_order.reload
+    end
+
     address = SpreeAmazon::Address.find(
       spree_current_order.amazon_order_reference_id,
       gateway: gateway,
