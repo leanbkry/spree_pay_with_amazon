@@ -74,6 +74,9 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
 
   def confirm
     if amazon_payment.present? && spree_current_order.update_from_params(params, permitted_checkout_attributes, request.headers.env)
+      # skip address to delivery step to avoid resetting the selected shipping option
+      spree_current_order.state = "delivery"
+
       while !spree_current_order.confirm? && spree_current_order.next
       end
 
