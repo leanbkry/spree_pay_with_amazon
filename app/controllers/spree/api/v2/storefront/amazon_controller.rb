@@ -61,10 +61,17 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
         auth_hash = SpreeAmazon::User.find(gateway: gateway, access_token: access_token)
         spree_current_order.email = spree_current_order.email || spree_current_user.try(:email) || auth_hash['info']['email'] || "pending@amazon.com"
       end
-      spree_current_order.ensure_updated_shipments # Ensure to update the shipments if the address changed
       update_spree_current_order_address!(address, spree_current_user.try(:ship_address))
 
       spree_current_order.save!
+      # Ensure to update the shipments & tax if the country has changed
+      if old_country != spree_current_order.shipping_address.country
+        spree_current_order.reload
+        spree_current_order.ensure_updated_shipments
+        spree_current_order.line_items.each do |line_item|
+          line_item.update_price
+          line_item.save
+        end
     else
     end
     spree_current_order.reload
