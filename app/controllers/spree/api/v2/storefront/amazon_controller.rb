@@ -57,6 +57,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
 
     spree_current_order.state = 'address'
     if address
+      old_country = spree_current_order.shipping_address.country if spree_current_order.shipping_address
       unless spree_current_order.email
         auth_hash = SpreeAmazon::User.find(gateway: gateway, access_token: access_token)
         spree_current_order.email = spree_current_order.email || spree_current_user.try(:email) || auth_hash['info']['email'] || "pending@amazon.com"
