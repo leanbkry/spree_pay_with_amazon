@@ -72,6 +72,7 @@ class  Spree::Api::V2::Storefront::AmazonController < Spree::Api::V2::Storefront
           line_item.update_price
           line_item.save
         end
+      end
     else
     end
     spree_current_order.reload
